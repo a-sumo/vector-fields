@@ -1,0 +1,95 @@
+- !<AssetImportMetadata/c4e0b562-f0ca-44fa-a271-fcd5b33907a5>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> 737dc505-c444-4a1b-a564-f30afdd88009
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> 737dc505-c444-4a1b-a564-f30afdd88009
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> 59056e58-df88-41ca-b0a6-9bfbaa5bfca0
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/59056e58-df88-41ca-b0a6-9bfbaa5bfca0>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  ComponentUid: 62462379-f5a4-42d4-b180-a5e129a46bd2
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    arrowColumns: false
+    arrowLength: false
+    arrowRows: false
+    curlStrength: false
+    flowAccumulation: false
+    flowMemorySeconds: false
+    flowSpeed: false
+    gustRadius: false
+    gustStrength: false
+    initialPreset: false
+    interactionObject: false
+    metricCursorObject: false
+    metricSampleStep: false
+    planeDepth: false
+    planeWidth: false
+    tracerCount: false
+    trailSamples: false
+    trailWidth: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - interactionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      metricCursorObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      initialPreset: !<float> 3.000000
+      planeWidth: !<float> 24.000000
+      planeDepth: !<float> 14.000000
+      tracerCount: !<float> 132.000000
+      trailSamples: !<float> 10.000000
+      flowSpeed: 1.150000
+      gustStrength: 1.250000
+      gustRadius: 3.200000
+      curlStrength: 0.850000
+      arrowColumns: !<float> 11.000000
+      arrowRows: !<float> 7.000000
+      trailWidth: 0.075000
+      arrowLength: 0.420000
+      metricSampleStep: 0.550000
+      flowMemorySeconds: !<float> 2.000000
+      flowAccumulation: !<float> 1.000000
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @input SceneObject interactionObject {"hint":"Optional draggable handle. Its local X/Z position creates a moving gust in the field."}'
+    - '// @input SceneObject metricCursorObject {"hint":"Optional draggable metric cursor. Its local X/Z position samples divergence and curl."}'
+    - '// @input float initialPreset = 3 {"hint":"Initial planar field preset.", "widget":"combobox", "values":[{"label":"Expansion", "value":0}, {"label":"Contraction", "value":1}, {"label":"Curl", "value":2}, {"label":"Motion", "value":3}]}'
+    - '// @input float planeWidth = 48 {"widget":"slider", "min":8, "max":64, "step":0.5}'
+    - '// @input float planeDepth = 28 {"widget":"slider", "min":5, "max":44, "step":0.5}'
+    - '// @input float tracerCount = 132 {"widget":"slider", "min":30, "max":420, "step":5}'
+    - '// @input float trailSamples = 8 {"widget":"slider", "min":4, "max":18, "step":1}'
+    - '// @input float flowSpeed = 1.15 {"widget":"slider", "min":0.2, "max":4, "step":0.05}'
+    - '// @input float gustStrength = 2.1 {"widget":"slider", "min":0, "max":3, "step":0.05}'
+    - '// @input float gustRadius = 3.9 {"widget":"slider", "min":1, "max":8, "step":0.25}'
+    - '// @input float curlStrength = 1.45 {"widget":"slider", "min":0, "max":3, "step":0.05}'
+    - '// @input float arrowColumns = 11 {"widget":"slider", "min":5, "max":27, "step":1}'
+    - '// @input float arrowRows = 7 {"widget":"slider", "min":3, "max":17, "step":1}'
+    - '// @input float trailWidth = 0.075 {"widget":"slider", "min":0.02, "max":0.18, "step":0.005}'
+    - '// @input float arrowLength = 0.95 {"widget":"slider", "min":0.25, "max":1.8, "step":0.025}'
+    - '// @input float metricSampleStep = 0.55 {"widget":"slider", "min":0.18, "max":1.2, "step":0.02}'
+    - '// @input float flowMemorySeconds = 2 {"hint":"Field memory: seconds for stirred motion to ease back to rest after you stop. 0 = snap back instantly.", "widget":"slider", "min":0, "max":5, "step":0.1}'
+    - '// @input float flowAccumulation = 1.65 {"hint":"How strongly continued stirring builds up momentum in the field (cumulative energy).", "widget":"slider", "min":0, "max":3, "step":0.05}'

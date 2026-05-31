@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "isolatedModules": true,
+    "lib": [
+      "es2021"
+    ],
+    "module": "commonjs",
+    "noEmit": true,
+    "paths": {
+      "*": [
+        "./Assets/*",
+        "./Packages/*",
+        "./Support/*"
+      ]
+    },
+    "skipDefaultLibCheck": true,
+    "target": "es2021",
+    "types": []
+  },
+  "include": [
+    "./Assets/**/*.ts",
+    "./Packages/**/*.ts",
+    "./Support/**/*.d.ts"
+  ]
+}

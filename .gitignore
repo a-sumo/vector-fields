@@ -1,0 +1,38 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets and local agent state
+.env
+.env.*
+.claude/
+AGENTS.md
+
+# Lens Studio local state
+Cache/
+Workspaces/
+PluginsUserPreferences/
+*.lsproj.lock
+*.esproj.*.lock
+*.lock
+
+# Generated/local tooling
+node_modules/
+web/
+test/
+exports/
+package-lock.json
+Assets/Audio_TODO/
+Assets/Scripts/Utils/
+Assets/SurfacePlacement.lspkg/
+
+# Python caches from asset tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
