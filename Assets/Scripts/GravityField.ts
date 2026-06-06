@@ -244,6 +244,7 @@ export class GravityField extends BaseScriptComponent {
             setMoonSynchronousRotationEnabled: (enabled: boolean) => self.setMoonSynchronousRotationEnabled(enabled),
             setCelestialMotionEnabled: (enabled: boolean) => self.setCelestialMotionEnabled(enabled),
             setArtemisMissionEnabled: (enabled: boolean) => self.setCelestialMotionEnabled(enabled),
+            sampleTubeGlyphField: (x: number, z: number) => self.sampleTubeGlyphField(x, z),
         };
     }
 
@@ -275,6 +276,16 @@ export class GravityField extends BaseScriptComponent {
         this.artemisStaticBuilt = false;
         if (!enabled) this.destroyArtemisEventLabels();
         this.rebuild();
+    }
+
+    public sampleTubeGlyphField(x: number, z: number): { x: number, z: number, speed: number, intensity: number } {
+        const sample = this.sampleGravityXZ(x, z);
+        return {
+            x: sample.field.x,
+            z: sample.field.z,
+            speed: sample.field.length,
+            intensity: sample.intensity,
+        };
     }
 
     public rebuild(): void {

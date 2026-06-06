@@ -29,14 +29,26 @@
     autoScroll: false
     autoScrollSpeed: false
     axis: false
+    colorMap: false
+    colorMapOffset: false
+    colorMapScale: false
     driveFromPosition: false
     material: false
     phaseSpeed: false
     planeHeight: false
     planeWidth: false
+    renderMode: false
     ribbonWidth: false
     speedScaleRef: false
     travel: false
+    tubeColumns: false
+    tubeGlyphPulseStrength: false
+    tubeGlyphTemporalBend: false
+    tubeLength: false
+    tubeNormalLift: false
+    tubeRadialSegments: false
+    tubeRadius: false
+    tubeRows: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -47,11 +59,23 @@
     []
   DefaultScriptInputs:
     - material: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      renderMode: !<float> 0.000000
       planeWidth: !<float> 24.000000
       planeHeight: 9.270000
       ribbonWidth: 0.100000
+      tubeColumns: 38
+      tubeRows: 16
+      tubeLength: 0.420000
+      tubeRadius: 0.035000
+      tubeRadialSegments: 6
+      tubeNormalLift: 0.045000
       phaseSpeed: 0.400000
       speedScaleRef: 1.500000
+      tubeGlyphPulseStrength: 0.450000
+      tubeGlyphTemporalBend: 0.160000
+      colorMap: !<float> 17.000000
+      colorMapScale: !<float> 1.000000
+      colorMapOffset: !<float> 0.000000
       autoScroll: true
       autoScrollSpeed: 0.200000
       driveFromPosition: false
@@ -62,11 +86,23 @@
       {}
   InputLines:
     - // @input Asset.Material material
+    - '// @input float renderMode {"widget":"combobox", "values":[{"label":"Oriented Tubes", "value":0}, {"label":"Legacy Ribbons", "value":1}]}'
     - // @input float planeWidth = 24
     - // @input float planeHeight = 9.27
     - // @input float ribbonWidth = 0.1
+    - // @input int tubeColumns = 38
+    - // @input int tubeRows = 16
+    - // @input float tubeLength = 0.42
+    - // @input float tubeRadius = 0.035
+    - // @input int tubeRadialSegments = 6
+    - // @input float tubeNormalLift = 0.045
     - // @input float phaseSpeed = 0.4
     - // @input float speedScaleRef = 1.5
+    - // @input float tubeGlyphPulseStrength = 0.45
+    - // @input float tubeGlyphTemporalBend = 0.16
+    - '// @input float colorMap = 17 {"widget":"combobox", "values":[{"label":"jet", "value":13}, {"label":"viridis", "value":17}, {"label":"plasma", "value":18}]}'
+    - // @input float colorMapScale = 1
+    - // @input float colorMapOffset
     - // @input bool autoScroll
     - // @input float autoScrollSpeed = 0.2
     - // @input bool driveFromPosition = true

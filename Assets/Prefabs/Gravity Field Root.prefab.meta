@@ -379,6 +379,16 @@
   ScriptInputsDefault:
     earthMass: true
     wellDepth: true
+    useSurfaceTubeGlyphs: true
+    surfaceTubeMaterial: true
+    tubeColumns: true
+    tubeRows: true
+    tubeLengthSegments: true
+    tubeRadialSegments: true
+    tubeLength: true
+    tubeRadius: true
+    tubeSurfaceLift: true
+    tubeRebuildFps: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -404,11 +414,18 @@
       earthTint: !<Vec4> {x: 1.000000, y: 0.280000, z: 0.220000, w: 1.000000}
       moonTint: !<Vec4> {x: 0.220000, y: 0.600000, z: 1.000000, w: 1.000000}
       fieldLineColor: !<Vec4> {x: 0.300000, y: 0.620000, z: 1.000000, w: 0.780000}
-      arrowColor: !<Vec4> {x: 1.000000, y: 0.900000, z: 0.960000, w: 0.700000}
       fieldLineDensity: 0.500000
       fieldLineWidth: 0.090000
-      arrowSpacing: 6.400000
-      arrowScale: 0.340000
+      useSurfaceTubeGlyphs: true
+      surfaceTubeMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      tubeColumns: !<float> 23.000000
+      tubeRows: !<float> 17.000000
+      tubeLengthSegments: !<float> 5.000000
+      tubeRadialSegments: !<float> 6.000000
+      tubeLength: 1.350000
+      tubeRadius: 0.045000
+      tubeSurfaceLift: 0.055000
+      tubeRebuildFps: !<float> 12.000000
   ScriptTypes:
     "":
       {}

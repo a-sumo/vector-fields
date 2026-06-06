@@ -1,0 +1,110 @@
+- !<AssetImportMetadata/ae34834d-c82a-4cf4-8e28-c5994737dc29>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> 533fbe83-49de-41bf-b091-441375e40ae6
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> 533fbe83-49de-41bf-b091-441375e40ae6
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> 1b3df9e3-c5f5-4673-b853-2b52bf78906a
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/1b3df9e3-c5f5-4673-b853-2b52bf78906a>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  ComponentUid: 577e0790-c8df-40e1-8f51-7a94256805e6
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    _colorMap: false
+    _colorMapOffset: false
+    _colorMapScale: false
+    animationSpeed: false
+    columns: false
+    dataPlane: false
+    fieldPreset: false
+    fieldScale: false
+    fieldSourceMode: false
+    fieldSourceObject: false
+    magnitudeAlpha: false
+    material: false
+    normalLift: false
+    planeDepth: false
+    planeWidth: false
+    radialSegments: false
+    rebuildFps: false
+    renderOrder: false
+    rows: false
+    syncLayoutFromSource: false
+    syncTransformFromSource: false
+    tubeLength: false
+    tubeRadius: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - material: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      fieldSourceObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      fieldSourceMode: !<float> 0.000000
+      syncLayoutFromSource: true
+      syncTransformFromSource: true
+      dataPlane: !<float> 0.000000
+      normalLift: 0.035000
+      fieldPreset: !<float> 0.000000
+      planeWidth: !<float> 24.000000
+      planeDepth: !<float> 14.000000
+      columns: !<float> 13.000000
+      rows: !<float> 9.000000
+      tubeLength: 0.820000
+      tubeRadius: 0.055000
+      radialSegments: !<float> 7.000000
+      fieldScale: !<float> 1.000000
+      animationSpeed: 0.450000
+      _colorMap: !<float> 17.000000
+      _colorMapScale: !<float> 1.000000
+      _colorMapOffset: !<float> 0.000000
+      magnitudeAlpha: !<float> 0.000000
+      renderOrder: !<float> 42.000000
+      rebuildFps: !<float> 20.000000
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @input Asset.Material material {"hint":"Optional material. Use an OrientedTubeGlyph material for per-tube flat palette colors."}'
+    - '// @input SceneObject fieldSourceObject {"hint":"Optional source object exposing sampleTubeGlyphField(x,z,time), such as GravityField.gravityApi or CarFlowStreamlines.windApi."}'
+    - '// @input float fieldSourceMode {"hint":"Analytical uses the local animated presets. Source modes sample a sibling GravityField or CarFlowStreamlines API.", "widget":"combobox", "values":[{"label":"Analytical", "value":0}, {"label":"Gravity Source", "value":1}, {"label":"Car Wind Source", "value":2}]}'
+    - '// @input bool syncLayoutFromSource = true {"hint":"When a source exposes planeWidth/planeDepth, keep this glyph grid aligned to that source."}'
+    - '// @input bool syncTransformFromSource = true {"hint":"When a source object is provided, copy its world position/rotation/scale so this is a true alternate renderer for the same slice."}'
+    - '// @input float dataPlane {"hint":"Geometry plane. Gravity/analytical fields use X/Z. Car-flow slices use X/Y.", "widget":"combobox", "values":[{"label":"X/Z plane", "value":0}, {"label":"X/Y plane", "value":1}]}'
+    - '// @input float normalLift = 0.035 {"hint":"Small offset along the plane normal to avoid z-fighting with the source slice.", "widget":"slider", "min":-1, "max":1, "step":0.005}'
+    - '// @input float fieldPreset {"widget":"combobox", "values":[{"label":"Expansion", "value":0}, {"label":"Contraction", "value":1}, {"label":"Curl", "value":2}, {"label":"Saddle", "value":3}, {"label":"Uniform", "value":4}]}'
+    - '// @input float planeWidth = 24 {"widget":"slider", "min":2, "max":80, "step":0.5}'
+    - '// @input float planeDepth = 14 {"widget":"slider", "min":2, "max":60, "step":0.5}'
+    - '// @input float columns = 13 {"widget":"slider", "min":3, "max":33, "step":1}'
+    - '// @input float rows = 9 {"widget":"slider", "min":3, "max":25, "step":1}'
+    - '// @input float tubeLength = 0.82 {"widget":"slider", "min":0.08, "max":3.5, "step":0.02}'
+    - '// @input float tubeRadius = 0.055 {"widget":"slider", "min":0.01, "max":0.35, "step":0.005}'
+    - '// @input float radialSegments = 7 {"widget":"slider", "min":4, "max":14, "step":1}'
+    - '// @input float fieldScale = 1 {"widget":"slider", "min":0, "max":2, "step":0.05}'
+    - '// @input float animationSpeed = 0.45 {"widget":"slider", "min":0, "max":2, "step":0.05}'
+    - '// @input float _colorMap = 17 {"hint":"Matplotlib-style colormap for tube magnitude/intensity.", "widget":"combobox", "values":[{"label":"jet", "value":13}, {"label":"viridis", "value":17}, {"label":"plasma", "value":18}]}'
+    - '// @input float _colorMapScale = 1 {"hint":"Multiplies the normalized value before sampling the selected color gradient.", "widget":"slider", "min":0.05, "max":4, "step":0.01}'
+    - '// @input float _colorMapOffset {"hint":"Adds to the normalized value before sampling the selected color gradient.", "widget":"slider", "min":-1, "max":1, "step":0.01}'
+    - '// @input float magnitudeAlpha {"hint":"0 keeps tubes opaque. Higher values make magnitude affect alpha.", "widget":"slider", "min":0, "max":1, "step":0.01}'
+    - '// @input float renderOrder = 42 {"widget":"slider", "min":0, "max":120, "step":1}'
+    - '// @input float rebuildFps = 20 {"widget":"slider", "min":1, "max":60, "step":1}'

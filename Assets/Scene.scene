@@ -14,6 +14,7 @@
     - !<own> a0d85fd6-b271-46c7-b4cd-229a9b924811
     - !<own> 33f7d2ff-6a63-4beb-b027-12bbe1f65b9d
     - !<own> 9604109c-b9f6-42d6-be57-c790bbfcee77
+    - !<own> 1fde15ab-a553-4b57-9bc9-a1b7957d8ffd
   layers: !<Layers/267ee9a7-aff2-4f9d-9a49-f71214747d03>
     userLayers:
       []
@@ -457,21 +458,44 @@
   Enabled: true
   ScriptAsset: !<reference> 96387e59-493a-40d3-9df9-a6fd05246c27
   ScriptInputsDefault:
+    renderMode: true
     ribbonWidth: true
+    tubeColumns: true
+    tubeRows: true
+    tubeLength: true
+    tubeRadius: true
+    tubeRadialSegments: true
+    tubeNormalLift: true
     phaseSpeed: true
     speedScaleRef: true
+    tubeGlyphPulseStrength: true
+    tubeGlyphTemporalBend: true
+    colorMapScale: true
+    colorMapOffset: true
     autoScrollSpeed: true
     axis: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
     "":
-      material: !<reference.Material> a05ce627-6eb7-4f1a-b451-19fba45c2417
+      material: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
+      renderMode: !<float> 0.000000
       planeWidth: 10.702000
       planeHeight: 3.947000
       ribbonWidth: 0.100000
+      tubeColumns: 38
+      tubeRows: 16
+      tubeLength: 0.420000
+      tubeRadius: 0.035000
+      tubeRadialSegments: 6
+      tubeNormalLift: 0.045000
       phaseSpeed: 0.400000
       speedScaleRef: 1.500000
+      tubeGlyphPulseStrength: 0.450000
+      tubeGlyphTemporalBend: 0.160000
+      colorMap: !<float> 13.000000
+      colorMapScale: !<float> 1.000000
+      colorMapOffset: !<float> 0.000000
       autoScroll: false
       autoScrollSpeed: 0.200000
       driveFromPosition: true
@@ -989,6 +1013,21 @@
     []
   Components:
     []
+- !<SceneObject/1fde15ab-a553-4b57-9bc9-a1b7957d8ffd>
+  PrefabRemaps:
+    []
+  Name: OrientedTubeGlyphField
+  Enabled: false
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 90.000000, y: 0.000000, z: 90.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> 5ca2aac4-d8c8-40c0-9d7a-017171e9db42
 - !<SceneObject/1fe1071f-e06a-40b7-aaaa-8f669d48c544>
   PrefabRemaps:
     []
@@ -1822,8 +1861,16 @@
   Enabled: true
   ScriptAsset: !<reference> 75bd3985-9cac-47b1-944a-1135dad96d09
   ScriptInputsDefault:
+    dockUnderActiveVisual: true
+    proxyDockPlacement: true
+    visualDockGapCm: true
+    visualDockScaleFromBounds: true
+    minVisualDockScaleMultiplier: true
+    maxVisualDockScaleMultiplier: true
     dockSmoothing: true
     dockTweenSeconds: true
+    autoActivateOnVisualSelected: true
+    autoActivateReadyFrames: true
     driveScale: true
     driveRotation: true
   ScriptTypesDefault:
@@ -1836,9 +1883,18 @@
       unfoldedDockOffset: !<Vec3> {x: 0.000000, y: 14.000000, z: 0.600000}
       foldedDockOffset: !<Vec3> {x: 17.100000, y: 12.200000, z: 0.600000}
       dockScale: !<Vec3> {x: 4.800000, y: 4.800000, z: 4.800000}
+      dockUnderActiveVisual: true
+      proxyDockPlacement: !<float> 0.000000
+      visualDockGapCm: !<float> 8.000000
+      visualDockTowardUserCm: !<float> 18.000000
+      visualDockScaleFromBounds: 0.100000
+      minVisualDockScaleMultiplier: 0.700000
+      maxVisualDockScaleMultiplier: 1.450000
       dockSmoothing: !<float> 12.000000
       dockTweenSeconds: 0.380000
       hideWhenNoActiveVisual: false
+      autoActivateOnVisualSelected: true
+      autoActivateReadyFrames: !<float> 3.000000
       driveScale: true
       driveRotation: true
   ScriptTypes:
@@ -2990,6 +3046,57 @@
     - !<own> eeefed81-5683-4d40-9498-fd8984e6e8f6
   Components:
     []
+- !<ScriptComponent/5ca2aac4-d8c8-40c0-9d7a-017171e9db42>
+  PrefabRemaps:
+    []
+  Name: OrientedTubeGlyphField
+  Enabled: true
+  ScriptAsset: !<reference> 533fbe83-49de-41bf-b091-441375e40ae6
+  ScriptInputsDefault:
+    fieldSourceMode: true
+    syncLayoutFromSource: true
+    syncTransformFromSource: true
+    dataPlane: true
+    normalLift: true
+    planeWidth: true
+    planeDepth: true
+    columns: true
+    rows: true
+    tubeLength: true
+    tubeRadius: true
+    _colorMap: true
+    renderOrder: true
+    rebuildFps: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      material: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
+      fieldSourceObject: !<reference.SceneObject> 0b6a6847-33e7-4426-8d0f-b1439e97c835
+      fieldSourceMode: !<float> 0.000000
+      syncLayoutFromSource: true
+      syncTransformFromSource: true
+      dataPlane: !<float> 0.000000
+      normalLift: 0.035000
+      fieldPreset: !<float> 4.000000
+      planeWidth: !<float> 24.000000
+      planeDepth: !<float> 14.000000
+      columns: !<float> 13.000000
+      rows: !<float> 9.000000
+      tubeLength: 0.820000
+      tubeRadius: 0.055000
+      radialSegments: !<float> 6.000000
+      fieldScale: 1.600000
+      animationSpeed: 1.600000
+      _colorMap: !<float> 17.000000
+      _colorMapScale: 0.540000
+      _colorMapOffset: 0.050000
+      magnitudeAlpha: !<float> 1.000000
+      renderOrder: !<float> 42.000000
+      rebuildFps: !<float> 20.000000
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/5d0fd01d-a7f6-432e-b50e-d0c6a689b942>
   PrefabRemaps:
     []
@@ -4618,7 +4725,7 @@
     - fa528d87-aa8f-4e23-8db4-7676ed116c72: 060a8331-01c0-4d4f-5bd5-ca46500afffe
     - fe704575-461d-4c39-92dd-2dc98eb78107: 4f115f0a-3f7e-411d-6903-c1ec7cb44910
   Name: Gravity Field Root
-  Enabled: false
+  Enabled: true
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: 0.000000, y: 0.000000, z: -118.000000}
@@ -5049,7 +5156,10 @@
   ScriptAsset: !<reference> 7cf94e0f-e6b6-418a-a20f-e19c70f1c723
   ScriptInputsDefault:
     earthMass: true
-    wellDepth: true
+    useSurfaceTubeGlyphs: true
+    tubeLength: true
+    tubeRadius: true
+    tubeSurfaceLift: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -5058,28 +5168,35 @@
       moonObject: !<reference.SceneObject> 09486896-d0f0-4d89-bdea-750fe79fc51b
       planeMaterial: !<reference.Material> 6a25f8f0-b68d-481d-bf6c-5f6704152226
       planeSize: !<float> 56.000000
-      resolution: !<float> 160.000000
+      resolution: !<float> 56.000000
       earthMass: !<float> 18.000000
       moonMass: !<float> 4.000000
-      softening: 0.450000
-      wellDepth: !<float> 1.000000
-      depthScale: 0.260000
-      contourCount: !<float> 6.000000
+      softening: 1.500000
+      wellDepth: 2.700000
+      depthScale: 0.130000
+      contourCount: !<float> 5.000000
       contourThickness: 0.080000
-      flowSpeed: 0.450000
+      flowSpeed: !<float> 0.000000
       flowScale: 1.100000
-      opacityScale: 0.920000
-      colorLow: !<Vec4> {x: 0.120000, y: 0.360000, z: 1.000000, w: 1.000000}
-      colorHigh: !<Vec4> {x: 1.000000, y: 0.080000, z: 0.100000, w: 1.000000}
-      contourColor: !<Vec4> {x: 1.000000, y: 0.160000, z: 0.220000, w: 0.980000}
-      earthTint: !<Vec4> {x: 1.000000, y: 0.280000, z: 0.220000, w: 1.000000}
+      opacityScale: !<float> 1.000000
+      colorLow: !<Vec4> {x: 0.081804, y: 0.085451, z: 0.217380, w: 1.000000}
+      colorHigh: !<Vec4> {x: 0.158267, y: 0.840681, z: 0.115038, w: 1.000000}
+      contourColor: !<Vec4> {x: 0.042588, y: 0.733700, z: 0.962097, w: 0.979995}
+      earthTint: !<Vec4> {x: 0.993469, y: 0.986664, z: 1.000000, w: 1.000000}
       moonTint: !<Vec4> {x: 0.220000, y: 0.600000, z: 1.000000, w: 1.000000}
-      fieldLineColor: !<Vec4> {x: 0.300000, y: 0.620000, z: 1.000000, w: 0.780000}
-      arrowColor: !<Vec4> {x: 1.000000, y: 0.900000, z: 0.960000, w: 0.700000}
-      fieldLineDensity: 0.500000
+      fieldLineColor: !<Vec4> {x: 0.573846, y: 0.711269, z: 0.996475, w: 0.919997}
+      fieldLineDensity: 1.250000
       fieldLineWidth: 0.090000
-      arrowSpacing: 6.400000
-      arrowScale: 0.340000
+      useSurfaceTubeGlyphs: true
+      surfaceTubeMaterial: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
+      tubeColumns: !<float> 7.000000
+      tubeRows: !<float> 11.000000
+      tubeLengthSegments: !<float> 3.000000
+      tubeRadialSegments: !<float> 4.000000
+      tubeLength: 1.350000
+      tubeRadius: 0.045000
+      tubeSurfaceLift: 0.055000
+      tubeRebuildFps: !<float> 4.000000
   ScriptTypes:
     "":
       {}

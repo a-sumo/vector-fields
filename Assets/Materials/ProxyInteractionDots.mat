@@ -140,7 +140,7 @@
   Properties:
     FlatColor:
       typeIdx: 5
-      value: {x: 0.180000, y: 0.460000, z: 1.000000, w: 0.520000}
+      value: {x: 0.366445, y: 0.449149, z: 0.907118, w: 0.519997}
     PreviewEnabled:
       typeIdx: 0
       value: 0
