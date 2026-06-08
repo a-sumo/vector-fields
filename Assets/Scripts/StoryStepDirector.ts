@@ -99,6 +99,11 @@ export class StoryStepDirector extends BaseScriptComponent {
     cameraRoot: SceneObject = null as any;
 
     @input
+    @allowUndefined
+    @hint("Menu root used as the base transform for analytical field placement. Empty searches for Story Chapter Guide UI.")
+    menuRoot: SceneObject = null as any;
+
+    @input
     @hint("Enable the real content roots associated with the selected story step.")
     controlContentRoots: boolean = true;
 
@@ -166,7 +171,7 @@ export class StoryStepDirector extends BaseScriptComponent {
         new ComboBoxItem("plasma", 18),
     ]))
     @hint("Initial cube VectorField color map for theory modes.")
-    initialVectorColorMap: number = 17;
+    initialVectorColorMap: number = 18;
 
     @input
     @widget(new SliderWidget(0.05, 4.0, 0.01))
@@ -185,6 +190,18 @@ export class StoryStepDirector extends BaseScriptComponent {
     @input
     @hint("Camera-relative placement for the real VectorField in the theory chapter.")
     theoryVectorFrontOffset: vec3 = new vec3(0.0, 0.0, -50.0);
+
+    @input
+    @hint("Menu-relative placement for Motion Field Root in analytical modes. X = menu right, Y = menu up/down, Z = toward user from the menu plane.")
+    analyticalTabletopOffset: vec3 = new vec3(0.0, -32.0, 18.0);
+
+    @input
+    @hint("Menu-relative placement for Vector Field Examples Root in analytical modes. Separate from the motion plane because this root has a different pivot/bounds.")
+    analyticalVectorFieldOffset: vec3 = new vec3(0.0, -24.0, 18.0);
+
+    @input('float')
+    @hint("Tilt analytical tabletop fields toward the user in degrees. 0 keeps the plane normal exactly world +Y.")
+    analyticalTabletopTiltDegrees: number = 10.0;
 
     @input
     @widget(new SliderWidget(0.35, 2.0, 0.05))
@@ -230,7 +247,7 @@ export class StoryStepDirector extends BaseScriptComponent {
     private selectedGravityVariant: GravityExampleVariant = "field";
     private selectedWindVariant: WindExampleVariant = "globe";
     private selectedTheoryFieldMode: number = 0;
-    private selectedGradientPalette: number = 17;
+    private selectedGradientPalette: number = 18;
     private selectedGravityStage: number = 2;
     private selectedMagneticTubeMode: number = 0;
     private selectedWindTubeMode: number = 0;
@@ -296,6 +313,9 @@ export class StoryStepDirector extends BaseScriptComponent {
             this.selectedWindVariant = "globe";
         } else if (this.selectedExampleField === "aerodynamics") {
             this.selectedWindVariant = "car_flow";
+            if (this.selectedGradientPalette === 17) {
+                this.selectedGradientPalette = 18;
+            }
         }
         this.exampleFieldSelected = true;
         if (this.currentStep.id === "examples") {
@@ -397,7 +417,7 @@ export class StoryStepDirector extends BaseScriptComponent {
 
     public selectGradientPalette(palette: number | string): void {
         this.selectedGradientPalette = this.normalizeGradientPalette(palette);
-        if (this.currentStep.id === "theory") {
+        if (this.isGradientControlContext()) {
             this.appliedKey = "";
             this.applyCurrent(true);
         }
@@ -413,7 +433,7 @@ export class StoryStepDirector extends BaseScriptComponent {
 
     public setGradientScale(value: number): void {
         this.vectorColorMapScale = this.clampNumber(value, 0.05, 4.0);
-        if (this.currentStep.id === "theory") {
+        if (this.isGradientControlContext()) {
             this.appliedKey = "";
             this.applyCurrent(true);
         }
@@ -429,7 +449,7 @@ export class StoryStepDirector extends BaseScriptComponent {
 
     public setGradientOffset(value: number): void {
         this.vectorColorMapOffset = this.clampNumber(value, -1.0, 1.0);
-        if (this.currentStep.id === "theory") {
+        if (this.isGradientControlContext()) {
             this.appliedKey = "";
             this.applyCurrent(true);
         }
@@ -769,7 +789,7 @@ export class StoryStepDirector extends BaseScriptComponent {
     private placeMotionPlane(root: SceneObject | null): void {
         if (!root) return;
         this.restoreRootBaseScale(root);
-        this.placeFrontFacing(root, this.motionFrontOffset, true);
+        this.placeAnalyticalTabletop(root, this.analyticalTabletopOffset);
         this.disableScriptByName(root, "SurfacePlacer");
     }
 
@@ -789,9 +809,10 @@ export class StoryStepDirector extends BaseScriptComponent {
     private placeTheoryVectorField(root: SceneObject | null): void {
         if (!root) return;
         this.restoreRootBaseScale(root);
-        this.placeFrontFacing(root, this.theoryVectorFrontOffset, false);
+        this.placeAnalyticalTabletop(root, this.analyticalVectorFieldOffset);
         root.getTransform().setLocalScale(new vec3(this.theoryVectorScale, this.theoryVectorScale, this.theoryVectorScale));
         this.restoreVectorFieldTarget(root);
+        this.disableVectorFieldBoundsColliders(root);
     }
 
     private applyTheoryVectorFieldMode(root: SceneObject | null): void {
@@ -891,6 +912,7 @@ export class StoryStepDirector extends BaseScriptComponent {
 
     private restoreVectorFieldTarget(root: SceneObject | null): void {
         if (!root) return;
+        this.disableVectorFieldBoundsColliders(root);
         const target = this.findInTree(root, "Target");
         if (!target) return;
         target.enabled = true;
@@ -908,6 +930,19 @@ export class StoryStepDirector extends BaseScriptComponent {
         for (let i = 0; i < scripts.length; i++) {
             const script = scripts[i] as any;
             if (script) script.enabled = true;
+        }
+    }
+
+    private disableVectorFieldBoundsColliders(root: SceneObject | null): void {
+        if (!root) return;
+        const scripts = root.getComponents("Component.ScriptComponent");
+        for (let i = 0; i < scripts.length; i++) {
+            const script = scripts[i] as any;
+            const fieldCollider = script ? script.fieldCollider as ColliderComponent : null;
+            if (fieldCollider) fieldCollider.enabled = false;
+        }
+        for (let i = 0; i < root.getChildrenCount(); i++) {
+            this.disableVectorFieldBoundsColliders(root.getChild(i));
         }
     }
 
@@ -1033,6 +1068,55 @@ export class StoryStepDirector extends BaseScriptComponent {
         const transform = root.getTransform();
         transform.setWorldPosition(target);
         transform.setWorldRotation(rotation);
+    }
+
+    private placeAnalyticalTabletop(root: SceneObject | null, localOffset: vec3): void {
+        if (!root) return;
+        const menu = this.menuRoot || this.findObjectByName("Story Chapter Guide UI");
+        const camera = this.cameraRoot || this.findObjectByName("Camera Object") || this.findObjectByName("Camera");
+        let target: vec3 | null = null;
+
+        if (menu) {
+            const menuTransform = menu.getTransform();
+            const menuRotation = menuTransform.getWorldRotation();
+            const cameraPosition = camera ? camera.getTransform().getWorldPosition() : menuTransform.getWorldPosition().add(menuRotation.multiplyVec3(new vec3(0.0, 0.0, 100.0)));
+            const menuPosition = menuTransform.getWorldPosition();
+            const right = menuRotation.multiplyVec3(new vec3(1.0, 0.0, 0.0));
+            const up = menuRotation.multiplyVec3(new vec3(0.0, 1.0, 0.0));
+            const menuNormal = menuRotation.multiplyVec3(new vec3(0.0, 0.0, 1.0));
+            const toCamera = cameraPosition.sub(menuPosition);
+            const frontSign = menuNormal.dot(toCamera) >= 0.0 ? 1.0 : -1.0;
+            const towardUser = menuNormal.uniformScale(frontSign);
+            target = menuPosition
+                .add(right.uniformScale(localOffset.x))
+                .add(up.uniformScale(localOffset.y))
+                .add(towardUser.uniformScale(localOffset.z));
+        } else if (camera) {
+            const cameraTransform = camera.getTransform();
+            const cameraPosition = cameraTransform.getWorldPosition();
+            const cameraRotation = cameraTransform.getWorldRotation();
+            const worldUp = new vec3(0.0, 1.0, 0.0);
+            const right = this.safeHorizontalDirection(cameraRotation.multiplyVec3(new vec3(1.0, 0.0, 0.0)), new vec3(1.0, 0.0, 0.0));
+            const forward = this.safeHorizontalDirection(cameraRotation.multiplyVec3(new vec3(0.0, 0.0, -1.0)), new vec3(0.0, 0.0, -1.0));
+            target = cameraPosition
+                .add(right.uniformScale(localOffset.x))
+                .add(worldUp.uniformScale(localOffset.y))
+                .add(forward.uniformScale(Math.abs(localOffset.z)));
+        } else {
+            root.getTransform().setLocalPosition(localOffset);
+            return;
+        }
+
+        const cameraPosition = camera ? camera.getTransform().getWorldPosition() : target.add(new vec3(0.0, 0.0, 100.0));
+        const worldUp = new vec3(0.0, 1.0, 0.0);
+        const toCamera = cameraPosition.sub(target);
+        const faceDirection = this.safeHorizontalDirection(toCamera, new vec3(0.0, 0.0, 1.0));
+        const yaw = faceDirection.length > 0.0001 ? quat.lookAt(faceDirection, worldUp) : quat.quatIdentity();
+        const tableRight = yaw.multiplyVec3(new vec3(1.0, 0.0, 0.0));
+        const tilt = quat.angleAxis(this.analyticalTabletopTiltDegrees * Math.PI / 180.0, tableRight);
+        const transform = root.getTransform();
+        transform.setWorldPosition(target);
+        transform.setWorldRotation(tilt.multiply(yaw));
     }
 
     private restoreRootBaseScale(root: SceneObject | null): void {
@@ -1229,15 +1313,21 @@ export class StoryStepDirector extends BaseScriptComponent {
             if (key === "jet") return 13;
             if (key === "viridis") return 17;
             if (key === "plasma") return 18;
+            if (key === "aero" || key === "cyan" || key === "teal") return 19;
             return GRADIENT_PALETTE_DEFAULT;
         }
         if (isNaN(palette)) return GRADIENT_PALETTE_DEFAULT;
         const index = Math.floor(palette);
-        if (index === 13 || index === 17 || index === 18) return index;
+        if (index === 13 || index === 17 || index === 18 || index === 19) return index;
         if (index === 0) return 13;
         if (index === 1) return 17;
         if (index === 2) return 18;
         return GRADIENT_PALETTE_DEFAULT;
+    }
+
+    private isGradientControlContext(): boolean {
+        return this.currentStep.id === "theory" ||
+            (this.currentStep.id === "examples" && this.exampleFieldSelected && this.selectedExampleField === "aerodynamics");
     }
 
     private findStep(stepId: string, rootName: string, index: number): StoryStepConfig {

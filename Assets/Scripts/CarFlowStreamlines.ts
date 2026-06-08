@@ -2,41 +2,52 @@ import { FLOW_PATHS } from "./FlowPaths";
 
 const DEFAULT_TUBE_MATERIAL: Material = requireAsset("../OrientedTubeGlyph.mat") as Material;
 
-// CarFlowStreamlines — Earth-wind-map-style streamline GEOMETRY for the baked
-// car-flow field, driven by a draggable slice. Only the CURRENT slice's
-// streamlines exist as mesh at any time; dragging along the slide axis rebuilds
-// smoothed tube-ribbon geo from that slice's baked paths (FLOW_PATHS.slices[k]).
-// The CarFlowStream shader animates a soft flowing speed ramp along the geo.
+// CarFlowStreamlines — slice-local car-flow geometry for the baked field.
+// The fast path uses small ribbon glyphs anchored on the current slice. Full
+// streamline ribbons and old radial tubes remain as fallbacks/debug modes.
 @component
 export class CarFlowStreamlines extends BaseScriptComponent {
   @input material: Material;
   @input
+  @allowUndefined
+  @hint("Separate material for fast car-flow ribbon glyphs. Use a CarFlowRibbonGlyph shader material here.")
+  glyphMaterial: Material = DEFAULT_TUBE_MATERIAL;
+  @input
   @widget(new ComboBoxWidget([
-    new ComboBoxItem("Oriented Tubes", 0),
-    new ComboBoxItem("Legacy Ribbons", 1),
+    new ComboBoxItem("Ribbon Glyphs", 0),
+    new ComboBoxItem("Streamline Ribbons", 1),
+    new ComboBoxItem("Debug Tubes", 2),
   ]))
   renderMode: number = 0;
 
   @input('float') planeWidth: number = 24;      // local width the field X-domain maps to
   @input('float') planeHeight: number = 9.27;   // local height the field Y-domain maps to
   @input('float') ribbonWidth: number = 0.10;
-  @input('int') tubeColumns: number = 38;
-  @input('int') tubeRows: number = 16;
-  @input('float') tubeLength: number = 0.42;
-  @input('float') tubeRadius: number = 0.035;
-  @input('int') tubeRadialSegments: number = 6;
+  @input('int') tubeColumns: number = 26;
+  @input('int') tubeRows: number = 11;
+  @input('float') tubeLength: number = 0.52;
+  @input('float') tubeRadius: number = 0.055;
+  @input('int') tubeRadialSegments: number = 4;
   @input('float') tubeNormalLift: number = 0.045;
   @input('float') phaseSpeed: number = 0.4;
   @input('float') speedScaleRef: number = 1.5;
-  @input('float') tubeGlyphPulseStrength: number = 0.45;
-  @input('float') tubeGlyphTemporalBend: number = 0.16;
+  @input('float') tubeGlyphPulseStrength: number = 0.0;
+  @input('float') tubeGlyphTemporalBend: number = 0.0;
+  @input('bool') animateRibbonGlyphs: boolean = false;
+  @input
+  @widget(new ColorWidget())
+  @hint("Constant glyph color used when useSpeedColorMap is off.")
+  glyphColor: vec4 = new vec4(0.0, 0.95, 1.0, 1.0);
+  @input('bool')
+  @hint("Optional diagnostic mode. Off keeps all glyphs a constant color so orientation is the primary cue.")
+  useSpeedColorMap: boolean = true;
   @input
   @widget(new ComboBoxWidget([
     new ComboBoxItem("jet", 13),
     new ComboBoxItem("viridis", 17),
     new ComboBoxItem("plasma", 18),
   ]))
-  colorMap: number = 17;
+  colorMap: number = 18;
   @input('float') colorMapScale: number = 1.0;
   @input('float') colorMapOffset: number = 0.0;
 
@@ -49,6 +60,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
 
   private pass: any;
   private rmv: RenderMeshVisual;
+  private glyphMaterialInstance: Material | null = null;
   private nz: number = 1;
   private builtSlice: number = -1;          // which slice the current mesh holds
   private home: vec3 = new vec3(0, 0, 0);   // aligned rest position; slide is relative to this
@@ -79,16 +91,76 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       getTubeGlyphFieldSignature: () => self.getTubeGlyphFieldSignature(),
       setRenderMode: (mode: number | string) => self.setRenderMode(mode),
       setTubeMode: () => self.setRenderMode(0),
+      setRibbonGlyphMode: () => self.setRenderMode(0),
       setRibbonMode: () => self.setRenderMode(1),
+      setColorMap: (value: number | string) => self.setColorMap(value),
+      setPalette: (value: number | string) => self.setColorMap(value),
+      setColorMapScale: (value: number) => self.setColorMapScale(value),
+      setGradientScale: (value: number) => self.setColorMapScale(value),
+      setColorMapOffset: (value: number) => self.setColorMapOffset(value),
+      setGradientOffset: (value: number) => self.setColorMapOffset(value),
+      setUseSpeedColorMap: (enabled: boolean) => self.setUseSpeedColorMap(enabled),
+      setGlyphColor: (color: vec4) => self.setGlyphColor(color),
+      getColorMap: () => self.colorMap,
+      getColorMapScale: () => self.colorMapScale,
+      getColorMapOffset: () => self.colorMapOffset,
     };
+  }
+
+  public setColorMap(value: number | string): void {
+    this.colorMap = this.normalizeColorMap(value);
+    this.rebuildCurrentSlice();
+  }
+
+  public setColorMapScale(value: number): void {
+    if (isNaN(value)) return;
+    this.colorMapScale = this.clamp(value, -8.0, 8.0);
+    this.rebuildCurrentSlice();
+  }
+
+  public setColorMapOffset(value: number): void {
+    if (isNaN(value)) return;
+    this.colorMapOffset = this.clamp(value, -2.0, 2.0);
+    this.rebuildCurrentSlice();
+  }
+
+  public setUseSpeedColorMap(enabled: boolean): void {
+    this.useSpeedColorMap = !!enabled;
+    this.rebuildCurrentSlice();
+  }
+
+  public setGlyphColor(color: vec4): void {
+    if (!color) return;
+    this.glyphColor = color;
+    this.rebuildCurrentSlice();
+  }
+
+  private rebuildCurrentSlice(): void {
+    this.builtSlice = -1;
+    this.buildSlice(this.sliceFromControl());
+  }
+
+  private normalizeColorMap(value: number | string): number {
+    if (typeof value === "string") {
+      const key = value.toLowerCase();
+      if (key.indexOf("jet") >= 0) return 13;
+      if (key.indexOf("plasma") >= 0) return 18;
+      if (key.indexOf("aero") >= 0 || key.indexOf("cyan") >= 0 || key.indexOf("teal") >= 0) return 19;
+      return 17;
+    }
+    const map = Math.floor(value);
+    if (map === 13 || map === 17 || map === 18 || map === 19) return map;
+    return 18;
   }
 
   public setRenderMode(mode: number | string): void {
     if (typeof mode === "string") {
       const key = mode.toLowerCase();
-      this.renderMode = key === "ribbon" || key === "ribbons" || key === "legacy" ? 1 : 0;
+      if (key === "tube" || key === "tubes" || key === "debug_tubes") this.renderMode = 2;
+      else if (key === "streamline" || key === "streamlines" || key === "ribbon" || key === "ribbons" || key === "legacy") this.renderMode = 1;
+      else this.renderMode = 0;
     } else {
-      this.renderMode = Math.max(0, Math.min(1, Math.floor(mode)));
+      this.renderMode = Math.max(0, Math.min(2, Math.floor(mode)));
     }
     this.applyMaterialForMode();
     this.builtSlice = -1;
@@ -132,8 +204,9 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     if (this.pass) {
       try { this.pass.Time = getTime(); } catch (e) {}
       try { this.pass.PhaseSpeed = this.phaseSpeed; } catch (e) {}
+      try { this.pass.PulseStrength = this.animateRibbonGlyphs ? this.tubeGlyphPulseStrength : 0.0; } catch (e) {}
+      try { this.pass.TemporalBend = this.animateRibbonGlyphs ? this.tubeGlyphTemporalBend : 0.0; } catch (e) {}
     }
-    if (this.isTubeMode()) this.buildSlice(k);
   }
 
   // Resolve the active slice index from auto-scroll or the draggable position,
@@ -157,14 +230,66 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     return Math.max(0, Math.min(this.nz - 1, Math.round(s * (this.nz - 1))));
   }
 
-  // Build geo for ONE slice. Tube mode is the primary car-flow rendering path;
-  // legacy ribbons remain available only as a fallback/debug mode.
+  // Build geo for ONE slice. The primary path is ribbon glyphs: 4 verts per
+  // sample, no caps, no per-frame rebuild, and still aligned to the slice data.
   private buildSlice(k: number): void {
-    if (this.isTubeMode()) {
+    if (this.isDebugTubeMode()) {
       this.buildTubeSlice(k);
-    } else {
+    } else if (this.isStreamlineRibbonMode()) {
       this.buildRibbonSlice(k);
+    } else {
+      this.buildRibbonGlyphSlice(k);
     }
+  }
+
+  private buildRibbonGlyphSlice(k: number): void {
+    const cols = Math.max(3, Math.floor(this.tubeColumns));
+    const rows = Math.max(3, Math.floor(this.tubeRows));
+    const hw = this.planeWidth * 0.5;
+    const hh = this.planeHeight * 0.5;
+    const mb = new MeshBuilder([
+      { name: "position", components: 3 },
+      { name: "normal", components: 3 },
+      { name: "texture0", components: 2 },
+      { name: "texture1", components: 2 },
+      { name: "texture2", components: 2 },
+    ]);
+    mb.topology = MeshTopology.Triangles;
+    mb.indexType = MeshIndexType.UInt16;
+
+    const spacing = Math.min(this.planeWidth / Math.max(1, cols - 1), this.planeHeight / Math.max(1, rows - 1));
+    const length = Math.max(0.08, Math.min(this.tubeLength, spacing * 0.88));
+    const width = Math.max(0.018, Math.min(this.tubeRadius * 1.6, spacing * 0.22));
+    const time = getTime();
+    let glyphCount = 0;
+
+    for (let row = 0; row < rows; row++) {
+      const y = rows === 1 ? 0.0 : -hh + (row / (rows - 1)) * this.planeHeight;
+      for (let col = 0; col < cols; col++) {
+        const x = cols === 1 ? 0.0 : -hw + (col / (cols - 1)) * this.planeWidth;
+        const sample = this.sampleSliceVector(k, x, y, time, false);
+        if (sample.speed < 0.018) continue;
+        const waveCoord = (col / Math.max(1, cols - 1)) * 2.4 + (row / Math.max(1, rows - 1)) * 0.55;
+        const dirX = sample.x / sample.speed;
+        const dirY = sample.z / sample.speed;
+        const len = length * this.clamp(0.74 + sample.intensity * 0.42, 0.64, 1.22);
+        const color = this.colorForValue(sample.intensity);
+        this.appendXYRibbonGlyph(mb, x, y, dirX, dirY, len, width, color, waveCoord);
+        glyphCount++;
+      }
+    }
+
+    if (glyphCount > 0) {
+      mb.updateMesh();
+      this.rmv.mesh = mb.getMesh();
+      try { this.rmv.renderOrder = 690; } catch (e) {}
+      this.rmv.enabled = true;
+    } else {
+      print("[CarFlowStreamlines] ribbon glyph slice " + k + " produced no visible glyphs; falling back to streamline ribbons");
+      this.buildRibbonSlice(k);
+      return;
+    }
+    this.builtSlice = k;
   }
 
   private buildRibbonSlice(k: number): void {
@@ -274,15 +399,16 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       const ln = slice[lineIndex];
       const xs = ln.x, ys = ln.y, sp = ln.sp;
       const templatePhase = (lineIndex * 0.6180339887) % 1.0;
-      for (let i = 0; i < xs.length; i++) {
+      const stride = animated ? 1 : 2;
+      for (let i = 0; i < xs.length; i += stride) {
         const px = mapX(xs[i]);
         const py = mapY(ys[i]);
         const dxp = px - x;
         const dyp = py - y;
         const d2 = dxp * dxp + dyp * dyp;
         if (d2 < bestDist) {
-          const i0 = Math.max(0, i - 1);
-          const i1 = Math.min(xs.length - 1, i + 1);
+          const i0 = Math.max(0, i - stride);
+          const i1 = Math.min(xs.length - 1, i + stride);
           let tx = mapX(xs[i1]) - mapX(xs[i0]);
           let ty = mapY(ys[i1]) - mapY(ys[i0]);
           const tl = Math.hypot(tx, ty) || 1.0;
@@ -377,7 +503,37 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     }
   }
 
+  private appendXYRibbonGlyph(mb: MeshBuilder, x: number, y: number, dx: number, dy: number, length: number, width: number, color: vec4, phase: number): void {
+    const px = -dy;
+    const py = dx;
+    const halfLength = length * 0.5;
+    const halfWidth = width * 0.5;
+    const ax = x - dx * halfLength;
+    const ay = y - dy * halfLength;
+    const bx = x + dx * halfLength;
+    const by = y + dy * halfLength;
+    const z = Math.max(this.tubeNormalLift, 0.10);
+    const start = mb.getVerticesCount();
+    const nx = 0.0, ny = 0.0, nz = 1.0;
+
+    mb.appendVerticesInterleaved([
+      ax - px * halfWidth, ay - py * halfWidth, z, nx, ny, nz, 0.0, phase, color.x, color.y, color.z, color.w,
+      ax + px * halfWidth, ay + py * halfWidth, z, nx, ny, nz, 0.0, phase, color.x, color.y, color.z, color.w,
+      bx - px * halfWidth, by - py * halfWidth, z, nx, ny, nz, 1.0, phase, color.x, color.y, color.z, color.w,
+      bx + px * halfWidth, by + py * halfWidth, z, nx, ny, nz, 1.0, phase, color.x, color.y, color.z, color.w,
+    ]);
+    mb.appendIndices([start, start + 1, start + 2, start + 1, start + 3, start + 2]);
+  }
+
   private colorForValue(value: number): vec4 {
+    if (!this.useSpeedColorMap) {
+      return new vec4(
+        this.clamp(this.glyphColor.x, 0.0, 1.0),
+        this.clamp(this.glyphColor.y, 0.0, 1.0),
+        this.clamp(this.glyphColor.z, 0.0, 1.0),
+        this.clamp(this.glyphColor.w, 0.0, 1.0)
+      );
+    }
     const scale = Math.abs(this.colorMapScale) < 0.0001 ? 1.0 : this.colorMapScale;
     const t = this.clamp(value * scale + this.colorMapOffset, 0.0, 1.0);
     const rgb = this.boostColor(this.sampleColorMap(t));
@@ -388,6 +544,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     const map = Math.floor(this.colorMap);
     if (map === 13) return this.mapJet(t);
     if (map === 18) return this.mapPlasma(t);
+    if (map === 19) return this.mapAeroCyan(t);
     return this.mapViridis(t);
   }
 
@@ -403,24 +560,35 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   private mapViridis(t: number): vec3 {
     return this.stops5(
       t,
-      new vec3(0.99, 0.91, 0.15),
-      new vec3(0.37, 0.79, 0.38),
-      new vec3(0.13, 0.57, 0.55),
+      new vec3(0.27, 0.01, 0.33),
       new vec3(0.23, 0.32, 0.55),
-      new vec3(0.27, 0.01, 0.33)
+      new vec3(0.13, 0.57, 0.55),
+      new vec3(0.37, 0.79, 0.38),
+      new vec3(0.99, 0.91, 0.15)
     );
   }
 
   private mapPlasma(t: number): vec3 {
     return this.stops7(
       t,
-      new vec3(0.94, 0.98, 0.13),
-      new vec3(0.99, 0.65, 0.21),
-      new vec3(0.88, 0.39, 0.38),
-      new vec3(0.70, 0.16, 0.56),
-      new vec3(0.42, 0.00, 0.66),
+      new vec3(0.05, 0.03, 0.53),
       new vec3(0.23, 0.06, 0.50),
-      new vec3(0.05, 0.03, 0.53)
+      new vec3(0.42, 0.00, 0.66),
+      new vec3(0.70, 0.16, 0.56),
+      new vec3(0.88, 0.39, 0.38),
+      new vec3(0.99, 0.65, 0.21),
+      new vec3(0.94, 0.98, 0.13)
+    );
+  }
+
+  private mapAeroCyan(t: number): vec3 {
+    return this.stops5(
+      t,
+      new vec3(0.03, 0.12, 0.30),
+      new vec3(0.00, 0.42, 0.78),
+      new vec3(0.00, 0.86, 0.94),
+      new vec3(0.46, 1.00, 0.86),
+      new vec3(1.00, 1.00, 1.00)
     );
   }
 
@@ -458,7 +626,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
 
   private applyMaterialForMode(): void {
     if (!this.rmv) return;
-    const desired = this.isTubeMode() ? DEFAULT_TUBE_MATERIAL : this.material;
+    const desired = this.isGlyphMaterialMode() ? this.getGlyphMaterialInstance() : this.material;
     if (desired && this.rmv.mainMaterial !== desired) {
       this.rmv.mainMaterial = desired;
       this.pass = desired.mainPass as any;
@@ -466,13 +634,44 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       this.pass = desired.mainPass as any;
     }
     if (this.pass) {
-      try { this.pass.depthTest = true; } catch (e) {}
-      try { this.pass.depthWrite = this.isTubeMode(); } catch (e) {}
+      const glyphMode = this.isGlyphMaterialMode();
+      try { this.pass.depthTest = !glyphMode; } catch (e) {}
+      try { this.pass.DepthTest = !glyphMode; } catch (e) {}
+      try { this.pass.depthWrite = false; } catch (e) {}
+      try { this.pass.DepthWrite = false; } catch (e) {}
+      try { this.pass.twoSided = true; } catch (e) {}
+      try { this.pass.TwoSided = true; } catch (e) {}
+      try { this.pass.blendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+      try { this.pass.BlendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
     }
   }
 
-  private isTubeMode(): boolean {
+  private getGlyphMaterialInstance(): Material {
+    if (!this.glyphMaterialInstance) {
+      const source = this.glyphMaterial || DEFAULT_TUBE_MATERIAL;
+      try {
+        this.glyphMaterialInstance = source.clone();
+      } catch (e) {
+        this.glyphMaterialInstance = source;
+      }
+    }
+    return this.glyphMaterialInstance;
+  }
+
+  private isStreamlineRibbonMode(): boolean {
+    return Math.floor(this.renderMode) === 1;
+  }
+
+  private isDebugTubeMode(): boolean {
+    return Math.floor(this.renderMode) === 2;
+  }
+
+  private isRibbonGlyphMode(): boolean {
     return Math.floor(this.renderMode) === 0;
+  }
+
+  private isGlyphMaterialMode(): boolean {
+    return this.isRibbonGlyphMode() || this.isDebugTubeMode();
   }
 
   private smoothPath(

@@ -193,7 +193,6 @@ export class GlobeSurfaceRotator extends BaseScriptComponent {
 
     private beginDrag(event: any): void {
         if (!this.enabled) return;
-        this.deactivateProxyForContentInteraction();
         this.gravityApi = this.findGravityApi();
         this.dragging = true;
         this.returning = false;

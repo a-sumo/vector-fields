@@ -26,6 +26,7 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
+    animateRibbonGlyphs: false
     autoScroll: false
     autoScrollSpeed: false
     axis: false
@@ -33,6 +34,8 @@
     colorMapOffset: false
     colorMapScale: false
     driveFromPosition: false
+    glyphColor: false
+    glyphMaterial: false
     material: false
     phaseSpeed: false
     planeHeight: false
@@ -49,6 +52,7 @@
     tubeRadialSegments: false
     tubeRadius: false
     tubeRows: false
+    useSpeedColorMap: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -59,6 +63,7 @@
     []
   DefaultScriptInputs:
     - material: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      glyphMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
       renderMode: !<float> 0.000000
       planeWidth: !<float> 24.000000
       planeHeight: 9.270000
@@ -73,6 +78,9 @@
       speedScaleRef: 1.500000
       tubeGlyphPulseStrength: 0.450000
       tubeGlyphTemporalBend: 0.160000
+      animateRibbonGlyphs: true
+      glyphColor: !<Vec4> {x: 0.000000, y: 0.950000, z: 1.000000, w: 1.000000}
+      useSpeedColorMap: false
       colorMap: !<float> 17.000000
       colorMapScale: !<float> 1.000000
       colorMapOffset: !<float> 0.000000
@@ -86,21 +94,25 @@
       {}
   InputLines:
     - // @input Asset.Material material
-    - '// @input float renderMode {"widget":"combobox", "values":[{"label":"Oriented Tubes", "value":0}, {"label":"Legacy Ribbons", "value":1}]}'
+    - '// @input Asset.Material glyphMaterial {"hint":"Separate material for fast car-flow ribbon glyphs. Use a CarFlowRibbonGlyph shader material here."}'
+    - '// @input float renderMode {"widget":"combobox", "values":[{"label":"Ribbon Glyphs", "value":0}, {"label":"Streamline Ribbons", "value":1}, {"label":"Debug Tubes", "value":2}]}'
     - // @input float planeWidth = 24
     - // @input float planeHeight = 9.27
     - // @input float ribbonWidth = 0.1
-    - // @input int tubeColumns = 38
-    - // @input int tubeRows = 16
-    - // @input float tubeLength = 0.42
-    - // @input float tubeRadius = 0.035
-    - // @input int tubeRadialSegments = 6
+    - // @input int tubeColumns = 26
+    - // @input int tubeRows = 11
+    - // @input float tubeLength = 0.52
+    - // @input float tubeRadius = 0.055
+    - // @input int tubeRadialSegments = 4
     - // @input float tubeNormalLift = 0.045
     - // @input float phaseSpeed = 0.4
     - // @input float speedScaleRef = 1.5
-    - // @input float tubeGlyphPulseStrength = 0.45
-    - // @input float tubeGlyphTemporalBend = 0.16
-    - '// @input float colorMap = 17 {"widget":"combobox", "values":[{"label":"jet", "value":13}, {"label":"viridis", "value":17}, {"label":"plasma", "value":18}]}'
+    - // @input float tubeGlyphPulseStrength
+    - // @input float tubeGlyphTemporalBend
+    - // @input bool animateRibbonGlyphs
+    - '// @input vec4 glyphColor = {0,0.95,1,1} {"hint":"Constant glyph color used when useSpeedColorMap is off.", "widget":"color"}'
+    - '// @input bool useSpeedColorMap = true {"hint":"Optional diagnostic mode. Off keeps all glyphs a constant color so orientation is the primary cue."}'
+    - '// @input float colorMap = 18 {"widget":"combobox", "values":[{"label":"jet", "value":13}, {"label":"viridis", "value":17}, {"label":"plasma", "value":18}]}'
     - // @input float colorMapScale = 1
     - // @input float colorMapOffset
     - // @input bool autoScroll

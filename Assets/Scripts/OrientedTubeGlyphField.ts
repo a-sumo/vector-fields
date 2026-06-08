@@ -126,7 +126,7 @@ export class OrientedTubeGlyphField extends BaseScriptComponent {
         new ComboBoxItem("plasma", 18),
     ]))
     @hint("Matplotlib-style colormap for tube magnitude/intensity.")
-    private _colorMap: number = 17;
+    private _colorMap: number = 18;
 
     @input
     @widget(new SliderWidget(0.05, 4.0, 0.01))

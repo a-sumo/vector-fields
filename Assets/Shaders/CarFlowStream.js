@@ -38,9 +38,9 @@ void main() {
     float bandDist = abs(band - 0.5) * 2.0;
     float pulse = 1.0 - smoothstep(0.10, 0.92, bandDist);
     float glint = 1.0 - smoothstep(0.00, 0.20, bandDist);
-    float flowOpacity = 0.22 + pulse * 0.40 + glint * 0.12;
+    float flowOpacity = 0.58 + pulse * 0.34 + glint * 0.18;
     float tubeShade = edge * (0.82 + core * 0.32);
-    float alpha = clamp(tubeShade * flowOpacity * (0.82 + speedColor * 0.18), 0.0, 0.76);
+    float alpha = clamp(tubeShade * flowOpacity * (0.86 + speedColor * 0.14), 0.0, 0.96);
 
     // Smooth single-family green ramp. The value change is continuous so the
     // streamlines read as airflow, not chopped bars.

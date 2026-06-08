@@ -29,6 +29,8 @@
     arrowColumns: false
     arrowLength: false
     arrowRows: false
+    billboardMetricReadouts: false
+    cameraRoot: false
     curlStrength: false
     flowAccumulation: false
     flowMemorySeconds: false
@@ -55,6 +57,8 @@
   DefaultScriptInputs:
     - interactionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       metricCursorObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      billboardMetricReadouts: true
       initialPreset: !<float> 3.000000
       planeWidth: !<float> 24.000000
       planeDepth: !<float> 14.000000
@@ -77,6 +81,8 @@
   InputLines:
     - '// @input SceneObject interactionObject {"hint":"Optional draggable handle. Its local X/Z position creates a moving gust in the field."}'
     - '// @input SceneObject metricCursorObject {"hint":"Optional draggable metric cursor. Its local X/Z position samples divergence and curl."}'
+    - '// @input SceneObject cameraRoot {"hint":"Camera used to billboard the DIV/CURL readout text. Empty searches for Camera Object."}'
+    - '// @input bool billboardMetricReadouts = true {"hint":"Face the DIV/CURL readout text toward the camera every frame."}'
     - '// @input float initialPreset = 3 {"hint":"Initial planar field preset.", "widget":"combobox", "values":[{"label":"Expansion", "value":0}, {"label":"Contraction", "value":1}, {"label":"Curl", "value":2}, {"label":"Motion", "value":3}]}'
     - '// @input float planeWidth = 48 {"widget":"slider", "min":8, "max":64, "step":0.5}'
     - '// @input float planeDepth = 28 {"widget":"slider", "min":5, "max":44, "step":0.5}'

@@ -65,13 +65,16 @@ export class GravityField extends BaseScriptComponent {
     private static readonly EARTH_SIDEREAL_DAY_HOURS: number = 23.9;
     private static readonly MOON_ORBIT_PERIOD_HOURS: number = 27.3 * 24.0;
     private static readonly MOON_ORBIT_INCLINATION_DEG: number = 5.1;
-    private static readonly ARTEMIS_TRAJECTORY_WIDTH: number = 0.05;
-    private static readonly ARTEMIS_TRAIL_WIDTH: number = 0.08;
-    private static readonly ARTEMIS_CURSOR_RADIUS: number = 0.34;
-    private static readonly ARTEMIS_TRAJECTORY_LIFT: number = 0.14;
+    private static readonly ARTEMIS_TRAJECTORY_WIDTH: number = 0.16;
+    private static readonly ARTEMIS_TRAIL_WIDTH: number = 0.32;
+    private static readonly ARTEMIS_CURSOR_RADIUS: number = 0.72;
+    private static readonly ARTEMIS_TRAJECTORY_LIFT: number = 0.34;
     private static readonly ARTEMIS_DASH_LENGTH: number = 0.36;
     private static readonly ARTEMIS_DASH_GAP: number = 0.22;
     private static readonly ARTEMIS_RESAMPLE_STEP: number = 0.22;
+    private static readonly ARTEMIS_TRAIL_RESAMPLE_STEP: number = 0.55;
+    private static readonly ARTEMIS_TRAIL_MAX_POINTS: number = 360;
+    private static readonly ARTEMIS_PROGRESS_FEATHER: number = 0.035;
     private static readonly ARTEMIS_OUTER_PATH_RADIUS: number = 5.15;
     private static readonly ARTEMIS_DYNAMIC_INTERVAL: number = 0.2;
 
@@ -187,6 +190,26 @@ export class GravityField extends BaseScriptComponent {
     material: Material = null as any;
 
     @input
+    @allowUndefined
+    @hint("Dedicated Artemis planned dotted path material. Use a flat unlit material; do not share with other gravity visuals.")
+    artemisPlannedMaterial: Material = null as any;
+
+    @input
+    @allowUndefined
+    @hint("Dedicated Artemis completion material using ArtemisPathProgress.js. Exposes BaseColor, Progress, and Feather.")
+    artemisCompletionMaterial: Material = null as any;
+
+    @input
+    @allowUndefined
+    @hint("Dedicated Artemis current-position indicator material. Use a flat unlit overlay material.")
+    artemisCursorMaterial: Material = null as any;
+
+    @input
+    @widget(new ColorWidget())
+    @hint("Color for the Artemis current-position indicator.")
+    artemisCursorColor: vec4 = new vec4(0.92, 1.0, 1.0, 1.0);
+
+    @input
     @widget(new ComboBoxWidget([
         new ComboBoxItem("Bodies", 0),
         new ComboBoxItem("Arrows", 1),
@@ -224,6 +247,12 @@ export class GravityField extends BaseScriptComponent {
     private artemisEventLabels: SurfaceLabel[] = [];
     private artemisEventLabelTimes: number[] = [];
     private artemisEventLabelsBuilt: boolean = false;
+    private artemisTrailChunkCount: number = 0;
+    private artemisCursorObject: SceneObject | null = null;
+    private artemisCursorVisual: RenderMeshVisual | null = null;
+    private artemisPlannedPathMaterialInstance: Material | null = null;
+    private artemisCompletionPathMaterialInstance: Material | null = null;
+    private artemisCursorMaterialInstance: Material | null = null;
     private cachedCameraObject: SceneObject | null = null;
 
     onAwake(): void {
@@ -274,7 +303,10 @@ export class GravityField extends BaseScriptComponent {
         this.setMoonSynchronousRotationEnabled(enabled);
         // Force the static Artemis geometry to rebuild on the next pass.
         this.artemisStaticBuilt = false;
-        if (!enabled) this.destroyArtemisEventLabels();
+        if (!enabled) {
+            this.destroyArtemisEventLabels();
+            this.destroyArtemisCursorVisual();
+        }
         this.rebuild();
     }
 
@@ -315,10 +347,17 @@ export class GravityField extends BaseScriptComponent {
         for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
             if (!this.activeSlots[key]) {
-                try { this.visualSlots[key].destroy(); } catch (e) {}
-                delete this.visualSlots[key];
+                this.destroyVisualSlot(key);
             }
         }
+    }
+
+    private destroyVisualSlot(slotKey: string): void {
+        const visual = this.visualSlots[slotKey];
+        if (!visual) return;
+        try { visual.destroy(); } catch (e) {}
+        delete this.visualSlots[slotKey];
+        delete this.activeSlots[slotKey];
     }
 
     private tick(): void {
@@ -326,7 +365,7 @@ export class GravityField extends BaseScriptComponent {
         if (this.artemisMissionEnabled) {
             // During the mission the bodies move via their transforms and the
             // GPU well plane tracks them through its own uniforms, so no full
-            // rebuild is needed. Only refresh the growing trail + cursor.
+            // rebuild is needed. Only refresh the lightweight cursor.
             this.updateArtemisDynamic();
         } else {
             this.rebuildIfModelInputsChanged(fieldBodyMoved);
@@ -338,9 +377,9 @@ export class GravityField extends BaseScriptComponent {
         const now = getTime();
         if (now - this.lastArtemisDynamicTime < GravityField.ARTEMIS_DYNAMIC_INTERVAL) return;
         this.lastArtemisDynamicTime = now;
-        // Rebuilds the static path/markers only if the display scale changed;
-        // otherwise just swaps the trail and cursor meshes on existing visuals.
-        this.buildArtemisMissionVisuals();
+        this.updateArtemisStaticVisuals(false);
+        this.updateArtemisCompletionProgress();
+        this.updateArtemisCursorVisual();
     }
 
     // Floating timestamp labels at each Artemis waypoint. Created once when the
@@ -379,7 +418,7 @@ export class GravityField extends BaseScriptComponent {
             // cards near Earth don't stack on top of each other.
             const side = (slot % 2 === 0) ? 1.0 : -1.0;
             const lift = Math.floor(slot / 2) * 1.6;
-            label.setCallout(num + (ev.label || "") + (when ? "\n" + when : ""), new vec4(0.15, 0.55, 1.0, 1.0), side, lift);
+            label.setCallout(num + (ev.label || "") + (when ? "\n" + when : ""), new vec4(0.0, 0.62, 1.0, 1.0), side, lift);
             const at = this.artemisPlanarLocalForKm(
                 this.sampleArtemis(ARTEMIS_II_TRAJECTORY, ev.t),
                 GravityField.ARTEMIS_TRAJECTORY_LIFT + 0.04
@@ -624,30 +663,170 @@ export class GravityField extends BaseScriptComponent {
     }
 
     private buildArtemisMissionVisuals(): void {
-        // The full dotted path and the event markers do not change shape during
-        // the mission, so build them once (and again only if the display scale
-        // changes). This is what used to be rebuilt ~10x/sec and tanked perf.
+        this.updateArtemisStaticVisuals(true);
+        this.updateArtemisCursorVisual();
+    }
+
+    private updateArtemisStaticVisuals(forceActive: boolean): void {
         const signature = this.artemisDisplaySignatureValue();
         if (!this.artemisStaticBuilt || signature !== this.artemisStaticSignature) {
-            const trajectory = this.buildArtemisTrajectoryMesh(false);
-            this.assignVisual("artemisTrajectory", trajectory, new vec4(0.22, 0.55, 1.0, 0.70), GravityField.FIELD_RENDER_ORDER + 6);
             this.buildArtemisEventMarkers();
             this.destroyArtemisEventLabels();
+            this.assignArtemisPlannedPath();
+            this.assignArtemisCompletionPath();
             this.artemisStaticBuilt = true;
             this.artemisStaticSignature = signature;
+        } else if (forceActive) {
+            if (this.visualSlots["artemisTrajectory"]) this.activeSlots["artemisTrajectory"] = true;
+            if (this.visualSlots["artemisTrail"]) this.activeSlots["artemisTrail"] = true;
+        }
+    }
+
+    private updateArtemisCursorVisual(): void {
+        const cursorObject = this.ensureArtemisCursorVisual();
+        if (!cursorObject) return;
+        cursorObject.enabled = true;
+        cursorObject.getTransform().setLocalPosition(this.artemisDisplayLocalForTime(this.artemisMissionT, GravityField.ARTEMIS_TRAJECTORY_LIFT + 0.08));
+    }
+
+    private ensureArtemisCursorVisual(): SceneObject | null {
+        if (this.artemisCursorObject && this.artemisCursorVisual) return this.artemisCursorObject;
+        this.destroyVisualSlot("artemisCursor");
+        const object = global.scene.createSceneObject("ArtemisCurrentPositionIndicator");
+        object.setParent(this.sceneObject);
+        const visual = object.createComponent("Component.RenderMeshVisual") as RenderMeshVisual;
+        const cursorColor = this.artemisCursorColorValue();
+        const cursorMaterial = this.artemisMaterial("cursor", cursorColor);
+        if (cursorMaterial) visual.mainMaterial = cursorMaterial;
+        if (visual.mainMaterial) {
+            this.forceArtemisOverlayMaterial(visual.mainMaterial.mainPass, cursorColor);
+        }
+        const mb = this.buildArtemisCursorMesh(vec3.zero());
+        visual.mesh = mb.getMesh();
+        mb.updateMesh();
+        this.setVisualRenderOrder(visual, GravityField.BODY_RENDER_ORDER + 14);
+        this.artemisCursorObject = object;
+        this.artemisCursorVisual = visual;
+        return object;
+    }
+
+    private destroyArtemisCursorVisual(): void {
+        if (this.artemisCursorObject) {
+            try { this.artemisCursorObject.destroy(); } catch (e) {}
+        }
+        this.artemisCursorObject = null;
+        this.artemisCursorVisual = null;
+        this.destroyVisualSlot("artemisCursor");
+    }
+
+    private artemisCursorColorValue(): vec4 {
+        const c = this.artemisCursorColor || new vec4(0.92, 1.0, 1.0, 1.0);
+        return new vec4(
+            Math.max(0.0, Math.min(1.0, c.x)),
+            Math.max(0.0, Math.min(1.0, c.y)),
+            Math.max(0.0, Math.min(1.0, c.z)),
+            Math.max(0.0, Math.min(1.0, c.w))
+        );
+    }
+
+    private assignArtemisPlannedPath(): void {
+        const mb = this.buildArtemisTrajectoryMesh(false, GravityField.ARTEMIS_TRAJECTORY_LIFT - 0.05);
+        this.assignArtemisVisual(
+            "artemisTrajectory",
+            mb,
+            "planned",
+            new vec4(0.02, 0.92, 1.0, 0.96),
+            GravityField.BODY_RENDER_ORDER + 2
+        );
+    }
+
+    private assignArtemisCompletionPath(): void {
+        const path = this.buildArtemisFullSolidPath(GravityField.ARTEMIS_TRAJECTORY_LIFT + 0.05);
+        const mb = this.makeMeshBuilder();
+        this.addPlanarRibbonPath(mb, path, GravityField.ARTEMIS_TRAIL_WIDTH);
+        this.assignArtemisVisual(
+            "artemisTrail",
+            mb,
+            "completion",
+            new vec4(0.15, 1.0, 0.18, 1.0),
+            GravityField.BODY_RENDER_ORDER + 5
+        );
+        for (let i = 0; i < this.artemisTrailChunkCount; i++) {
+            this.destroyVisualSlot("artemisTrail_" + i);
+        }
+        this.artemisTrailChunkCount = 0;
+        this.updateArtemisCompletionProgress();
+    }
+
+    private assignArtemisVisual(slotKey: string, mb: MeshBuilder, materialKey: string, color: vec4, renderOrder: number): RenderMeshVisual | null {
+        if (!mb.isValid()) return null;
+        let visual = this.visualSlots[slotKey];
+        if (!visual) {
+            visual = this.sceneObject.createComponent("Component.RenderMeshVisual") as RenderMeshVisual;
+            this.visualSlots[slotKey] = visual;
+        }
+        const material = this.artemisMaterial(materialKey, color);
+        if (material) visual.mainMaterial = material;
+        if (visual.mainMaterial) {
+            this.forceArtemisOverlayMaterial(visual.mainMaterial.mainPass, color);
+        }
+        visual.mesh = mb.getMesh();
+        mb.updateMesh();
+        this.setVisualRenderOrder(visual, renderOrder);
+        this.activeSlots[slotKey] = true;
+        return visual;
+    }
+
+    private artemisMaterial(kind: string, color: vec4): Material | null {
+        let mat: Material | null = null;
+        let source: Material | null = null;
+        if (kind === "planned") {
+            mat = this.artemisPlannedPathMaterialInstance;
+            source = this.artemisPlannedMaterial;
+        } else if (kind === "completion") {
+            mat = this.artemisCompletionPathMaterialInstance;
+            source = this.artemisCompletionMaterial;
+        } else if (kind === "cursor") {
+            mat = this.artemisCursorMaterialInstance;
+            source = this.artemisCursorMaterial;
         }
 
-        // The trail grows with mission time and the cursor tracks the current
-        // position; these are the only meshes refreshed per update tick.
-        const trail = this.buildArtemisTrajectoryMesh(true);
-        this.assignVisual("artemisTrail", trail, new vec4(0.42, 0.72, 1.0, 0.96), GravityField.FIELD_RENDER_ORDER + 7);
+        if (!mat && source) {
+            try {
+                mat = (source as any).clone();
+            } catch (e) {
+                mat = source;
+            }
+            if (kind === "planned") this.artemisPlannedPathMaterialInstance = mat;
+            else if (kind === "completion") this.artemisCompletionPathMaterialInstance = mat;
+            else if (kind === "cursor") this.artemisCursorMaterialInstance = mat;
+        }
 
-        const cursor = this.buildArtemisCursorMesh(this.artemisDisplayLocalForTime(this.artemisMissionT, GravityField.ARTEMIS_TRAJECTORY_LIFT + 0.03));
-        this.assignVisual("artemisCursor", cursor, new vec4(0.70, 0.86, 1.0, 1.0), GravityField.BODY_RENDER_ORDER + 4);
+        if (mat) this.forceArtemisOverlayMaterial(mat.mainPass, color);
+        return mat;
     }
 
     private artemisDisplaySignatureValue(): string {
         return this.artemisTrajectoryScale.toFixed(3) + ":" + this.artemisEarthClearance.toFixed(3);
+    }
+
+    private artemisProgress(): number {
+        const duration = Math.max(1.0, ARTEMIS_II_TRAJECTORY.durationSec);
+        return Math.max(0.0, Math.min(1.0, this.artemisMissionT / duration));
+    }
+
+    private updateArtemisCompletionProgress(): void {
+        const material = this.artemisCompletionPathMaterialInstance;
+        if (!material || !material.mainPass) return;
+        const pass: any = material.mainPass;
+        const progress = this.artemisProgress();
+        const color = new vec4(0.15, 1.0, 0.18, 1.0);
+        try { pass.Progress = progress; } catch (e) {}
+        try { pass.progress = progress; } catch (e) {}
+        try { pass.Feather = GravityField.ARTEMIS_PROGRESS_FEATHER; } catch (e) {}
+        try { pass.feather = GravityField.ARTEMIS_PROGRESS_FEATHER; } catch (e) {}
+        try { pass.BaseColor = color; } catch (e) {}
+        try { pass.baseColor = color; } catch (e) {}
     }
 
     // Place a ring marker at each mission waypoint (ARTEMIS_II_TRAJECTORY.events),
@@ -666,7 +845,7 @@ export class GravityField extends BaseScriptComponent {
                 GravityField.ARTEMIS_TRAJECTORY_LIFT + 0.04
             );
             const mb = this.buildArtemisMarkerMesh(center);
-            this.assignVisual("artemisEvent" + i, mb, new vec4(0.12, 0.52, 1.0, 0.95), GravityField.BODY_RENDER_ORDER + 3);
+            this.assignVisual("artemisEvent" + i, mb, new vec4(0.08, 0.96, 1.0, 1.0), GravityField.BODY_RENDER_ORDER + 3);
         }
     }
 
@@ -684,9 +863,9 @@ export class GravityField extends BaseScriptComponent {
         return mb;
     }
 
-    private buildArtemisTrajectoryMesh(flownOnly: boolean): MeshBuilder {
+    private buildArtemisTrajectoryMesh(flownOnly: boolean, lift: number = GravityField.ARTEMIS_TRAJECTORY_LIFT): MeshBuilder {
         const mb = this.makeMeshBuilder();
-        const path = this.buildArtemisDisplayPath(flownOnly, GravityField.ARTEMIS_TRAJECTORY_LIFT);
+        const path = this.buildArtemisDisplayPath(flownOnly, lift);
         if (flownOnly) {
             this.addPlanarRibbonPath(mb, path, GravityField.ARTEMIS_TRAIL_WIDTH);
         } else {
@@ -701,6 +880,16 @@ export class GravityField extends BaseScriptComponent {
         return mb;
     }
 
+    private buildArtemisFullSolidPath(lift: number): vec3[] {
+        const d: any = ARTEMIS_II_TRAJECTORY;
+        const n = d.t.length;
+        const path: vec3[] = [];
+        for (let i = 0; i < n; i++) {
+            path.push(this.artemisPlanarLocalForKm(new vec3(d.x[i], d.y[i], d.z[i]), lift));
+        }
+        return this.limitPathPoints(this.compactPath(path, 0.025), GravityField.ARTEMIS_TRAIL_MAX_POINTS);
+    }
+
     private buildArtemisDisplayPath(flownOnly: boolean, lift: number): vec3[] {
         const d: any = ARTEMIS_II_TRAJECTORY;
         const n = d.t.length;
@@ -710,30 +899,83 @@ export class GravityField extends BaseScriptComponent {
         // the OEM contains; the trail (flownOnly) stops at the current mission time.
         const sampleIdx = this.artemisSampleIndex(this.artemisMissionT);
         const lastIdx = flownOnly ? Math.min(sampleIdx, n - 1) : n - 1;
-        if (flownOnly && lastIdx < 1) return [];
         const path: vec3[] = [];
         for (let i = 0; i <= lastIdx; i++) {
             path.push(this.artemisPlanarLocalForKm(new vec3(d.x[i], d.y[i], d.z[i]), lift));
         }
         if (flownOnly && this.artemisMissionT < d.t[n - 1]) {
-            path.push(this.artemisPlanarLocalForKm(this.sampleArtemis(ARTEMIS_II_TRAJECTORY, this.artemisMissionT), lift));
+            const current = this.artemisPlanarLocalForKm(this.sampleArtemis(ARTEMIS_II_TRAJECTORY, this.artemisMissionT), lift);
+            if (path.length < 2 || this.distanceVec(path[path.length - 1], current) > 0.01) {
+                path.push(current);
+            }
+            if (path.length < 2) {
+                const a = new vec3(d.x[0], d.y[0], d.z[0]);
+                const b = new vec3(d.x[1], d.y[1], d.z[1]);
+                const preview = this.lerpVec(
+                    this.artemisPlanarLocalForKm(a, lift),
+                    this.artemisPlanarLocalForKm(b, lift),
+                    0.08
+                );
+                path.push(preview);
+            }
         }
-        return this.compactPath(this.resamplePath(path, GravityField.ARTEMIS_RESAMPLE_STEP), 0.025);
+        const resampleStep = flownOnly ? GravityField.ARTEMIS_TRAIL_RESAMPLE_STEP : GravityField.ARTEMIS_RESAMPLE_STEP;
+        const compacted = this.compactPath(this.resamplePath(path, resampleStep), 0.025);
+        return flownOnly ? this.limitPathPoints(compacted, GravityField.ARTEMIS_TRAIL_MAX_POINTS) : compacted;
+    }
+
+    private limitPathPoints(path: vec3[], maxPoints: number): vec3[] {
+        const limit = Math.max(2, Math.floor(maxPoints));
+        if (path.length <= limit) return path;
+        const out: vec3[] = [];
+        const last = path.length - 1;
+        for (let i = 0; i < limit; i++) {
+            const idx = Math.round((i / (limit - 1)) * last);
+            out.push(path[idx]);
+        }
+        return out;
     }
 
     private buildArtemisCursorMesh(center: vec3): MeshBuilder {
         const mb = this.makeMeshBuilder();
         const r = GravityField.ARTEMIS_CURSOR_RADIUS;
-        const w = GravityField.ARTEMIS_TRAIL_WIDTH * 0.72;
+        const w = GravityField.ARTEMIS_TRAIL_WIDTH * 0.55;
+        const ring: vec3[] = [];
+        const seg = 28;
+        for (let i = 0; i <= seg; i++) {
+            const a = (i / seg) * Math.PI * 2.0;
+            ring.push(center.add(new vec3(Math.cos(a) * r, 0.0, Math.sin(a) * r)));
+        }
+        this.addPlanarRibbonPath(mb, ring, w);
         this.addPlanarRibbonPath(mb, [
             center.add(new vec3(-r, 0.0, 0.0)),
             center.add(new vec3(r, 0.0, 0.0)),
-        ], w);
+        ], w * 0.82);
         this.addPlanarRibbonPath(mb, [
             center.add(new vec3(0.0, 0.0, -r)),
             center.add(new vec3(0.0, 0.0, r)),
-        ], w);
+        ], w * 0.82);
+        this.addFlatDiamond(mb, center, Math.max(0.18, r * 0.24));
         return mb;
+    }
+
+    private addFlatDiamond(mb: MeshBuilder, center: vec3, radius: number): void {
+        const base = mb.getVerticesCount();
+        const y = center.y + 0.01;
+        const verts = [
+            center.x, y, center.z, 0.0, 1.0, 0.0, 0.5, 0.5,
+            center.x, y, center.z - radius, 0.0, 1.0, 0.0, 0.5, 0.0,
+            center.x + radius, y, center.z, 0.0, 1.0, 0.0, 1.0, 0.5,
+            center.x, y, center.z + radius, 0.0, 1.0, 0.0, 0.5, 1.0,
+            center.x - radius, y, center.z, 0.0, 1.0, 0.0, 0.0, 0.5,
+        ];
+        mb.appendVerticesInterleaved(verts);
+        mb.appendIndices([
+            base, base + 1, base + 2,
+            base, base + 2, base + 3,
+            base, base + 3, base + 4,
+            base, base + 4, base + 1,
+        ]);
     }
 
     private artemisLocalForKm(pKm: vec3, lift: number): vec3 {
@@ -1898,6 +2140,26 @@ export class GravityField extends BaseScriptComponent {
         try { pass.depthTest = false; } catch (e) {}
         try { pass.DepthWrite = false; } catch (e) {}
         try { pass.depthWrite = false; } catch (e) {}
+    }
+
+    private forceArtemisOverlayMaterial(pass: any, color: vec4): void {
+        if (!pass) return;
+        try { pass.FlatColor = color; } catch (e) {}
+        try { pass.Port_FlatColor_N000 = color; } catch (e) {}
+        try { pass.BaseColor = color; } catch (e) {}
+        try { pass.baseColor = color; } catch (e) {}
+        try { pass.Feather = GravityField.ARTEMIS_PROGRESS_FEATHER; } catch (e) {}
+        try { pass.Progress = this.artemisProgress(); } catch (e) {}
+        try { pass.Opacity = 1.0; } catch (e) {}
+        try { pass.opacity = 1.0; } catch (e) {}
+        try { pass.DepthTest = false; } catch (e) {}
+        try { pass.depthTest = false; } catch (e) {}
+        try { pass.DepthWrite = false; } catch (e) {}
+        try { pass.depthWrite = false; } catch (e) {}
+        try { pass.TwoSided = true; } catch (e) {}
+        try { pass.twoSided = true; } catch (e) {}
+        try { pass.FrustumCulling = false; } catch (e) {}
+        try { pass.frustumCulling = false; } catch (e) {}
     }
 
     private setVisualRenderOrder(visual: RenderMeshVisual, renderOrder: number): void {

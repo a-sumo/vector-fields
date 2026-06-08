@@ -48,6 +48,15 @@ export class MotionFieldPlane extends BaseScriptComponent {
     metricCursorObject: SceneObject = null as any;
 
     @input
+    @allowUndefined
+    @hint("Camera used to billboard the DIV/CURL readout text. Empty searches for Camera Object.")
+    cameraRoot: SceneObject = null as any;
+
+    @input
+    @hint("Face the DIV/CURL readout text toward the camera every frame.")
+    billboardMetricReadouts: boolean = true;
+
+    @input
     @widget(new ComboBoxWidget([
         new ComboBoxItem("Expansion", 0),
         new ComboBoxItem("Contraction", 1),
@@ -156,6 +165,7 @@ export class MotionFieldPlane extends BaseScriptComponent {
     private metricZ: number = 0.0;
     private divergenceText: Text | null = null;
     private curlText: Text | null = null;
+    private cachedCameraObject: SceneObject | null = null;
     private initialized: boolean = false;
     private dynamicMeshAccumulator: number = 0.0;
     private metricReadoutAccumulator: number = 0.0;
@@ -394,6 +404,7 @@ export class MotionFieldPlane extends BaseScriptComponent {
             this.metricReadoutAccumulator = 0.0;
             this.updateMetricReadouts();
         }
+        this.billboardMetricReadoutText();
     }
 
     private updateHandle(dt: number): void {
@@ -775,6 +786,32 @@ export class MotionFieldPlane extends BaseScriptComponent {
         return text;
     }
 
+    private billboardMetricReadoutText(): void {
+        if (!this.billboardMetricReadouts) return;
+        const camera = this.cameraRoot || this.cameraObject();
+        if (!camera) return;
+        this.billboardTextObject(this.divergenceText, camera);
+        this.billboardTextObject(this.curlText, camera);
+    }
+
+    private billboardTextObject(text: Text | null, camera: SceneObject): void {
+        if (!text) return;
+        const object = text.getSceneObject();
+        if (!object) return;
+        const transform = object.getTransform();
+        const toCamera = camera.getTransform().getWorldPosition().sub(transform.getWorldPosition());
+        const direction = this.safeDirection(toCamera, new vec3(0.0, 0.0, 1.0));
+        const rotation = quat.lookAt(direction, new vec3(0.0, 1.0, 0.0));
+        transform.setWorldRotation(rotation);
+    }
+
+    private cameraObject(): SceneObject | null {
+        if (!this.cachedCameraObject) {
+            this.cachedCameraObject = this.findSceneObjectByName("Camera Object") || this.findSceneObjectByName("Camera");
+        }
+        return this.cachedCameraObject;
+    }
+
     private measureAt(x: number, z: number): FieldMetrics {
         const eps = Math.max(0.1, this.metricSampleStep);
         const t = getTime();
@@ -964,6 +1001,29 @@ export class MotionFieldPlane extends BaseScriptComponent {
             if (child.name === name) return child;
         }
         return null;
+    }
+
+    private findSceneObjectByName(name: string): SceneObject | null {
+        const count = global.scene.getRootObjectsCount();
+        for (let i = 0; i < count; i++) {
+            const found = this.searchTree(global.scene.getRootObject(i), name);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    private searchTree(root: SceneObject, name: string): SceneObject | null {
+        if (root.name === name) return root;
+        for (let i = 0; i < root.getChildrenCount(); i++) {
+            const found = this.searchTree(root.getChild(i), name);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    private safeDirection(value: vec3, fallback: vec3): vec3 {
+        if (value.length > 0.0001) return value.normalize();
+        return fallback;
     }
 
     private hash01(value: number): number {

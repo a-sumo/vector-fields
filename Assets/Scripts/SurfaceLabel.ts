@@ -8,6 +8,10 @@
 // accent, side) once, then face(cameraWorldPos) every frame.
 
 const LABEL_FONT: Font = requireAsset("../Fonts/Nunito_Sans/NunitoSans.ttf") as Font;
+const CALLOUT_TEXT_SIZE: number = 26;
+const CALLOUT_DOT_RADIUS: number = 0.20;
+const CALLOUT_TEXT_COLOR: vec4 = new vec4(1.0, 1.0, 1.0, 1.0);
+const CALLOUT_TEXT_WEIGHT_OUTLINE: number = 0.09;
 
 export class SurfaceLabel {
     private root: SceneObject;
@@ -27,7 +31,7 @@ export class SurfaceLabel {
         this.textObject.setParent(this.root);
         this.text = this.textObject.createComponent("Component.Text") as Text;
         this.text.font = LABEL_FONT;
-        this.text.size = 18;
+        this.text.size = CALLOUT_TEXT_SIZE;
         this.text.horizontalAlignment = HorizontalAlignment.Center;
         this.text.verticalAlignment = VerticalAlignment.Center;
         this.text.horizontalOverflow = HorizontalOverflow.Overflow;
@@ -35,6 +39,7 @@ export class SurfaceLabel {
         this.text.depthTest = false;
         this.text.twoSided = true;
         try { this.text.blendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+        this.applyHeavyTextStyle();
     }
 
     setRenderOrder(order: number): void { this.baseOrder = order; }
@@ -56,9 +61,11 @@ export class SurfaceLabel {
     // `lift` staggers the leader length so neighbouring cards don't stack.
     setCallout(value: string, accent: vec4, side: number, lift: number = 0.0): void {
         this.text.text = value;
+        this.text.size = CALLOUT_TEXT_SIZE;
+        this.applyHeavyTextStyle();
         const s = side >= 0 ? 1.0 : -1.0;
 
-        const dotR = 0.34;
+        const dotR = CALLOUT_DOT_RADIUS;
         const leadX = 2.4 * s;
         const leadY = 2.8 + lift;            // box near corner
         const w = 9.6, h = 2.7;
@@ -83,7 +90,28 @@ export class SurfaceLabel {
         const pad = 0.5;
         this.text.worldSpaceRect = Rect.create(-(w * 0.5 - pad), (w * 0.5 - pad), -(h * 0.5 - pad), (h * 0.5 - pad));
         try { this.text.renderOrder = this.baseOrder + 2; } catch (e) {}
-        try { this.text.textFill.color = new vec4(1.0, 1.0, 1.0, 1.0); } catch (e) {}
+        try { this.text.textFill.color = CALLOUT_TEXT_COLOR; } catch (e) {}
+        try { (this.text as any).opacity = 1.0; } catch (e) {}
+        const pass: any = (this.text as any).mainPass;
+        if (pass) {
+            try { pass.baseColor = CALLOUT_TEXT_COLOR; } catch (e) {}
+            try { pass.baseColorFactor = CALLOUT_TEXT_COLOR; } catch (e) {}
+            try { pass.Opacity = 1.0; } catch (e) {}
+            try { pass.opacity = 1.0; } catch (e) {}
+        }
+    }
+
+    private applyHeavyTextStyle(): void {
+        try { this.text.textFill.color = CALLOUT_TEXT_COLOR; } catch (e) {}
+        try {
+            if (this.text.outlineSettings) {
+                this.text.outlineSettings.enabled = true;
+                this.text.outlineSettings.size = CALLOUT_TEXT_WEIGHT_OUTLINE;
+                if (this.text.outlineSettings.fill) {
+                    this.text.outlineSettings.fill.color = CALLOUT_TEXT_COLOR;
+                }
+            }
+        } catch (e) {}
     }
 
     // ---- geometry helpers (billboard-local XY plane, z = 0) ----

@@ -301,6 +301,10 @@
     arrowResolution: true
     artemisTrajectoryScale: true
     artemisEarthClearance: true
+    artemisPlannedMaterial: true
+    artemisCompletionMaterial: true
+    artemisCursorMaterial: true
+    artemisCursorColor: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -328,6 +332,10 @@
       artemisEarthClearance: 0.650000
       wellDepth: 2.400000
       material: !<reference.Material> 6b93edd3-80a7-493c-ad6f-624202005066
+      artemisPlannedMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      artemisCompletionMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      artemisCursorMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      artemisCursorColor: !<Vec4> {x: 0.920000, y: 1.000000, z: 1.000000, w: 1.000000}
       initialStage: !<float> 0.000000
   ScriptTypes:
     "":

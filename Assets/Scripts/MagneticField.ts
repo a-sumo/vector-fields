@@ -3,6 +3,8 @@
 // Magnet orientation: +X axis points from S to N pole (aligned with capsule mesh)
 // Rotate magnet to change pole direction
 
+const MANIPULATOR_AFFORDANCE_MATERIAL: Material = requireAsset("../Materials/FlatMaterial.mat") as Material;
+
 enum MagneticTubeMode {
     Trails = 0,    // Flowing tubes that bend along field lines
     Particles = 1, // Camera-facing billboard point sprites
@@ -122,6 +124,9 @@ export class MagneticFieldTubes extends BaseScriptComponent {
     private meshVisuals: RenderMeshVisual[] = [];
     private mainPass: Pass;
     private _baseFlowSpeed: number = -1;
+    private manipulatorAffordanceObject: SceneObject | null = null;
+    private manipulatorAffordanceVisual: RenderMeshVisual | null = null;
+    private manipulatorAffordanceMaterial: Material | null = null;
 
     private readonly MAX_VERTICES_PER_MESH = 65000;
 
@@ -208,6 +213,7 @@ export class MagneticFieldTubes extends BaseScriptComponent {
         this.applyLOD();
         this.adaptGeometryToBudget();
         this.generateMesh();
+        this.updateManipulatorAffordance();
         this.updateMaterialParams();
         this.createEvent("UpdateEvent").bind(this.onUpdate.bind(this));
 
@@ -610,7 +616,108 @@ export class MagneticFieldTubes extends BaseScriptComponent {
     public refresh(): void {
         this.adaptGeometryToBudget();
         this.generateMesh();
+        this.updateManipulatorAffordance();
         this.updateMaterialParams();
+    }
+
+    private updateManipulatorAffordance(): void {
+        const visual = this.ensureManipulatorAffordanceVisual();
+        if (!visual) return;
+
+        const halfExtent = Math.max(0.35, (this._gridSize - 1) * this._gridSpacing * 0.5 + 0.52);
+        const y = -halfExtent - 0.12;
+        const bracketLength = Math.max(0.55, halfExtent * 0.34);
+        const width = Math.max(0.018, this._radius * 0.42);
+        const meshBuilder = new MeshBuilder([
+            { name: "position", components: 3 },
+            { name: "normal", components: 3 },
+            { name: "texture0", components: 2 },
+        ]);
+        meshBuilder.topology = MeshTopology.Triangles;
+        meshBuilder.indexType = MeshIndexType.UInt16;
+
+        this.addAffordanceCorner(meshBuilder, -halfExtent, y, -halfExtent, 1.0, 1.0, bracketLength, width);
+        this.addAffordanceCorner(meshBuilder, halfExtent, y, -halfExtent, -1.0, 1.0, bracketLength, width);
+        this.addAffordanceCorner(meshBuilder, halfExtent, y, halfExtent, -1.0, -1.0, bracketLength, width);
+        this.addAffordanceCorner(meshBuilder, -halfExtent, y, halfExtent, 1.0, -1.0, bracketLength, width);
+
+        if (meshBuilder.isValid()) {
+            visual.mesh = meshBuilder.getMesh();
+            meshBuilder.updateMesh();
+        }
+    }
+
+    private ensureManipulatorAffordanceVisual(): RenderMeshVisual | null {
+        if (!this.manipulatorAffordanceObject) {
+            this.manipulatorAffordanceObject = global.scene.createSceneObject("__MagneticManipulatorAffordance");
+            this.manipulatorAffordanceObject.setParent(this.sceneObject);
+            this.manipulatorAffordanceObject.getTransform().setLocalPosition(vec3.zero());
+            this.manipulatorAffordanceObject.getTransform().setLocalRotation(quat.quatIdentity());
+            this.manipulatorAffordanceObject.getTransform().setLocalScale(vec3.one());
+        }
+        if (!this.manipulatorAffordanceVisual && this.manipulatorAffordanceObject) {
+            this.manipulatorAffordanceVisual = this.manipulatorAffordanceObject.createComponent("Component.RenderMeshVisual") as RenderMeshVisual;
+        }
+        if (!this.manipulatorAffordanceVisual) return null;
+
+        if (!this.manipulatorAffordanceMaterial) {
+            try {
+                this.manipulatorAffordanceMaterial = (MANIPULATOR_AFFORDANCE_MATERIAL as any).clone() as Material;
+            } catch (e) {
+                this.manipulatorAffordanceMaterial = MANIPULATOR_AFFORDANCE_MATERIAL;
+            }
+            this.applyAffordanceMaterialColor(this.manipulatorAffordanceMaterial, new vec4(0.22, 0.96, 1.0, 0.82));
+        }
+        this.manipulatorAffordanceVisual.mainMaterial = this.manipulatorAffordanceMaterial;
+        try { this.manipulatorAffordanceVisual.renderOrder = MagneticFieldTubes.FIELD_RENDER_ORDER + 4; } catch (e) {}
+        return this.manipulatorAffordanceVisual;
+    }
+
+    private addAffordanceCorner(mb: MeshBuilder, x: number, y: number, z: number, sx: number, sz: number, length: number, width: number): void {
+        const corner = new vec3(x, y, z);
+        const alongX = new vec3(x + sx * length, y, z);
+        const alongZ = new vec3(x, y, z + sz * length);
+        this.addAffordanceSegment(mb, corner, alongX, width);
+        this.addAffordanceSegment(mb, corner, alongZ, width);
+    }
+
+    private addAffordanceSegment(mb: MeshBuilder, a: vec3, b: vec3, width: number): void {
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 0.001) return;
+        const px = -dz / len * width;
+        const pz = dx / len * width;
+        const i = mb.getVerticesCount();
+        this.appendAffordanceVertex(mb, new vec3(a.x + px, a.y, a.z + pz), 0.0, 0.0);
+        this.appendAffordanceVertex(mb, new vec3(a.x - px, a.y, a.z - pz), 0.0, 1.0);
+        this.appendAffordanceVertex(mb, new vec3(b.x - px, b.y, b.z - pz), 1.0, 1.0);
+        this.appendAffordanceVertex(mb, new vec3(b.x + px, b.y, b.z + pz), 1.0, 0.0);
+        mb.appendIndices([i, i + 1, i + 2, i, i + 2, i + 3]);
+    }
+
+    private appendAffordanceVertex(mb: MeshBuilder, position: vec3, u: number, v: number): void {
+        mb.appendVerticesInterleaved([
+            position.x, position.y, position.z,
+            0.0, 1.0, 0.0,
+            u, v,
+        ]);
+    }
+
+    private applyAffordanceMaterialColor(material: Material | null, color: vec4): void {
+        if (!material) return;
+        const pass = material.mainPass as any;
+        if (!pass) return;
+        try { pass.FlatColor = color; } catch (e) {}
+        try { pass.BaseColor = color; } catch (e) {}
+        try { pass.baseColor = color; } catch (e) {}
+        try { pass.Port_FlatColor_N000 = color; } catch (e) {}
+        try { pass.opacity = color.w; } catch (e) {}
+        try { pass.Opacity = color.w; } catch (e) {}
+        try { pass.blendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+        try { pass.BlendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+        try { pass.DepthWrite = false; } catch (e) {}
+        try { pass.depthWrite = false; } catch (e) {}
     }
 
     // ============================================

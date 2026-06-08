@@ -368,11 +368,11 @@ const INTERACTION_ISOLATION_ROOTS = [
 ];
 
 const ARTEMIS_VARIANT_SLOT: StoryGuideSlot = { x: 0, y: -3.16, width: 26.4, height: 5.36 };
-const WIND_SOURCE_SLOT: StoryGuideSlot = { x: 0.0, y: 1.96, width: 25.6, height: 4.1 };
+const WIND_SOURCE_SLOT: StoryGuideSlot = { x: 0.0, y: 1.62, width: 25.6, height: 4.7 };
 const WIND_EVENT_SLOTS: StoryGuideSlot[] = [
-    { x: -9.2, y: -4.42, width: 8.0, height: 1.64 },
-    { x: 0.0, y: -4.42, width: 8.0, height: 1.64 },
-    { x: 9.2, y: -4.42, width: 8.0, height: 1.64 },
+    { x: -8.75, y: -4.42, width: 8.9, height: 1.96 },
+    { x: 0.0, y: -4.42, width: 8.9, height: 1.96 },
+    { x: 8.75, y: -4.42, width: 8.9, height: 1.96 },
 ];
 const MAGNETIC_MODE_SLOTS: StoryGuideSlot[] = STORY_GUIDE_EXAMPLE_DETAIL.magneticModes;
 
@@ -412,6 +412,13 @@ const THEORY_INFO_SLOT: StoryGuideSlot = STORY_GUIDE_THEORY.info;
 const MOTION_INSTRUCTION_SLOT: StoryGuideSlot = { x: 0.0, y: -0.08, width: 19.6, height: 4.8 };
 const GRADIENT_SCALE_SLOT: StoryGuideSlot = { x: 3.28, y: -5.18, width: 12.4, height: 1.42 };
 const GRADIENT_OFFSET_SLOT: StoryGuideSlot = { x: 3.28, y: -7.08, width: 12.4, height: 1.42 };
+const AERO_GRADIENT_PALETTE_SLOTS: StoryGuideSlot[] = [
+    { x: -8.6, y: -3.36, width: 5.2, height: 1.52 },
+    { x: -2.85, y: -3.36, width: 5.2, height: 1.52 },
+    { x: 2.9, y: -3.36, width: 5.2, height: 1.52 },
+];
+const AERO_GRADIENT_SCALE_SLOT: StoryGuideSlot = { x: 5.1, y: -5.34, width: 15.4, height: 1.42 };
+const AERO_GRADIENT_OFFSET_SLOT: StoryGuideSlot = { x: 5.1, y: -7.18, width: 15.4, height: 1.42 };
 const MAGNETIC_ADVANCED_SLOT: StoryGuideSlot = { x: 0.0, y: -7.84, width: 8.0, height: 1.64 };
 const MAGNETIC_POWER_SLOT: StoryGuideSlot = { x: -6.8, y: -4.48, width: 12.4, height: 1.36 };
 const MAGNETIC_PULL_SLOT: StoryGuideSlot = { x: 6.8, y: -4.48, width: 12.4, height: 1.36 };
@@ -491,6 +498,26 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     menuLowerOffsetCm: number = -14.0;
 
     @input
+    @hint("Extra menu drop while Earth Winds is open, so the hand-distance globe can sit above the controls.")
+    weatherMenuDropCm: number = -15.0;
+
+    @input
+    @hint("Extra menu lift while analytical field patterns are open, leaving space below the menu for the manipulable field.")
+    analyticalMenuLiftCm: number = 26.0;
+
+    @input
+    @hint("Extra vertical lift for the Earth Winds globe while its detail view is open.")
+    weatherGlobeLiftCm: number = 32.0;
+
+    @input
+    @hint("Forward separation from the menu plane for the Earth Winds globe while its detail view is open.")
+    weatherGlobeForwardCm: number = 10.0;
+
+    @input
+    @hint("Higher values make the Earth Winds layout offset blend in/out faster.")
+    weatherLayoutSmoothing: number = 8.0;
+
+    @input
     @hint("Horizontal offset from head anchor in centimeters when Follow is active.")
     menuHorizontalOffsetCm: number = 0.0;
 
@@ -567,7 +594,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private windSourceText: Text | null = null;
     private windEventCards: WindEventCardBinding[] = [];
     private selectedTheoryMode: TheoryFieldModeId = "expansion";
-    private selectedGradientPalette: GradientPaletteId = "viridis";
+    private selectedGradientPalette: GradientPaletteId = "plasma";
     private gradientScaleValue: number = 1.0;
     private gradientOffsetValue: number = 0.0;
     private magneticPowerValue: number = 0.09;
@@ -588,6 +615,11 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private renderPrioritySettleRemaining: number = 0.0;
     private theoryPatternUiSettleRemaining: number = 0.0;
     private theoryPatternControlsPrewarmed: boolean = false;
+    private weatherLayoutBlend: number = 0.0;
+    private analyticalLayoutBlend: number = 0.0;
+    private menuWeatherBaseLocalPosition: vec3 | null = null;
+    private windGlobeBaseLocalPosition: vec3 | null = null;
+    private windGlobeBaseWorldPosition: vec3 | null = null;
 
     onAwake(): void {
         this.startEventRef = this.createEvent("OnStartEvent");
@@ -596,7 +628,10 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.updateEventRef.bind(() => {
             this.ensureRuntimeAdditions();
             this.syncContextualPanelState();
+            this.updateWeatherLayoutBlend();
+            this.updateAnalyticalLayoutBlend();
             this.updateMenuPose();
+            this.updateWeatherGlobePose();
             this.updateMainExperiencePriority();
             this.updateTheoryPatternUiSettle();
             this.hideRegisteredUIKitVisuals();
@@ -760,7 +795,6 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.createGradientPaletteSelectors();
         this.createGradientSliders();
         this.createTheoryInfoCard();
-        this.createMotionInstructionText();
         this.prewarmTheoryPatternControls();
         this.createExamplesBackButton();
         this.createNavButton("__GuideBack", "back", this.offsetSlot(STORY_GUIDE_NAV.back), TEX_NAV_BACK_NORMAL, TEX_NAV_BACK_PRESSED, 244, () => this.prev());
@@ -1061,12 +1095,13 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
                 this.windSourceTextValue(),
                 sourceSlot.width,
                 sourceSlot.height,
-                24,
+                36,
                 HorizontalAlignment.Left,
                 VerticalAlignment.Center,
                 256,
-                new vec4(0.94, 0.94, 0.94, 1.0)
+                new vec4(1.0, 1.0, 1.0, 1.0)
             );
+            this.applyMaxWeightText(this.windSourceText, 0.055);
             this.windSourceObject.enabled = false;
         }
 
@@ -1088,8 +1123,8 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
                 TEX_UTILITY_OVERLAY_HOVER,
                 TEX_UTILITY_OVERLAY_PRESSED
             );
-            const title = this.createWindEventText(binding.object, "__Title", this.windEventTitle(storm), -0.08, 0.34, slot.width - 0.8, 0.62, 25, HorizontalAlignment.Left, 258);
-            const detail = this.createWindEventText(binding.object, "__Detail", this.windEventDetail(storm), -0.08, -0.32, slot.width - 0.8, 0.58, 19, HorizontalAlignment.Left, 258);
+            const title = this.createWindEventText(binding.object, "__Title", this.windEventTitle(storm), -0.10, 0.42, slot.width - 0.72, 0.74, 37, HorizontalAlignment.Left, 258);
+            const detail = this.createWindEventText(binding.object, "__Detail", this.windEventDetail(storm), -0.10, -0.36, slot.width - 0.72, 0.70, 29, HorizontalAlignment.Left, 258);
             binding.object.enabled = false;
             this.windEventCards.push({ stormIndex: i, button: binding, title, detail });
         }
@@ -1098,7 +1133,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private createWindEventText(parent: SceneObject, name: string, value: string, x: number, y: number, width: number, height: number, size: number, alignment: HorizontalAlignment, renderOrder: number): Text {
         const object = this.ensureChild(parent, name);
         this.place(object, x, y, 0.64);
-        return this.configureGuideText(
+        const text = this.configureGuideText(
             object,
             object.getComponent("Component.Text") as Text,
             value,
@@ -1108,8 +1143,10 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             alignment,
             VerticalAlignment.Center,
             renderOrder,
-            new vec4(0.88, 0.88, 0.88, 1.0)
+            new vec4(1.0, 1.0, 1.0, 1.0)
         );
+        this.applyMaxWeightText(text, size >= 34 ? 0.055 : 0.045);
+        return text;
     }
 
     private createTheoryFieldSelectors(): void {
@@ -1181,6 +1218,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     }
 
     private createMotionInstructionText(): void {
+        return;
         const slot = this.offsetSlot(MOTION_INSTRUCTION_SLOT);
         const root = this.ensureChild(this.sceneObject, "__GuideMotionInstructions");
         this.place(root, slot.x, slot.y, 0.72);
@@ -1555,6 +1593,28 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         return text;
     }
 
+    private applyMaxWeightText(text: Text | null, outlineSize: number): void {
+        if (!text) return;
+        const color = new vec4(1.0, 1.0, 1.0, 1.0);
+        try { text.textFill.color = color; } catch (e) {}
+        try { (text as any).opacity = 1.0; } catch (e) {}
+        try {
+            if ((text as any).outlineSettings) {
+                const outline = (text as any).outlineSettings;
+                outline.enabled = true;
+                outline.size = outlineSize;
+                if (outline.fill) outline.fill.color = color;
+            }
+        } catch (e) {}
+        const pass: any = (text as any).mainPass;
+        if (pass) {
+            try { pass.baseColor = color; } catch (e) {}
+            try { pass.baseColorFactor = color; } catch (e) {}
+            try { pass.Opacity = 1.0; } catch (e) {}
+            try { pass.opacity = 1.0; } catch (e) {}
+        }
+    }
+
     private createImage(
         parent: SceneObject,
         name: string,
@@ -1722,6 +1782,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.syncMagneticAdvancedState();
         this.syncTheoryFieldModeState();
         this.syncMotionInstructionState();
+        this.updateGradientControlSlotsForContext();
         this.syncGradientPaletteState();
         this.syncGradientSliderState();
         this.syncUtilityDockTargets();
@@ -1783,6 +1844,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
         if (this.windSourceText) {
             this.windSourceText.text = this.windSourceTextValue();
+            this.applyMaxWeightText(this.windSourceText, 0.055);
         }
         for (let i = 0; i < this.windEventCards.length; i++) {
             const card = this.windEventCards[i];
@@ -1798,15 +1860,18 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             if (storm) {
                 card.title.text = this.windEventTitle(storm);
                 card.detail.text = this.windEventDetail(storm);
-                const color = card.button.selected
-                    ? new vec4(1.0, 1.0, 1.0, 1.0)
-                    : (card.button.hovered ? new vec4(0.96, 0.96, 0.96, 1.0) : new vec4(0.84, 0.84, 0.84, 1.0));
+                const color = new vec4(1.0, 1.0, 1.0, 1.0);
                 try { card.title.textFill.color = color; } catch (e) {}
                 try { card.detail.textFill.color = color; } catch (e) {}
+                this.applyMaxWeightText(card.title, 0.055);
+                this.applyMaxWeightText(card.detail, 0.045);
             }
         }
         if (this.cursorOwner && this.cursorOwner.id.indexOf("wind_event:") === 0 && !this.cursorOwner.object.enabled) {
             this.hideCursor();
+        }
+        if (show && this.selectedWindEventIndex >= 0) {
+            this.syncSelectedWindMarker();
         }
     }
 
@@ -1821,11 +1886,10 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             ? STORMS.length + " active tracked event" + (STORMS.length === 1 ? "" : "s")
             : "no active tracked tropical cyclones";
         const mode = STORMS_USING_FALLBACK ? "cached fallback" : STORMS_DATA_MODE;
-        return "Source: " + gfs.source + " · " + gfsMode + "\n" +
-            "Layer: 10 m wind · " + grid + " grid · " + cadence + " forecast cadence\n" +
-            "Baked timestep: " + timestep + " · fetched " + gfsFetchedAt + "\n" +
-            "Events: " + STORMS_SOURCE + " · " + mode + " · fetched " + this.shortUtc(STORMS_FETCHED_AT) + "\n" +
-            "Current cards: " + eventState;
+        return "NOAA GFS 10 m wind · " + gfsMode + " · " + grid + " · " + cadence + "\n" +
+            "Wind timestep " + timestep + " · fetched " + gfsFetchedAt + "\n" +
+            "GDACS events · " + mode + " · fetched " + this.shortUtc(STORMS_FETCHED_AT) + "\n" +
+            eventState;
     }
 
     private windEventTitle(storm: Storm): string {
@@ -1835,8 +1899,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private windEventDetail(storm: Storm): string {
         const speed = this.windSpeedDetail(storm);
         const location = storm.coordinateLabel || this.coordinateLabel(storm.lat, storm.lon);
-        const update = storm.updatedLabel || this.shortUtc(storm.toDate || storm.fromDate);
-        return speed + " · " + location + " · " + update;
+        return speed + " · " + location;
     }
 
     private selectWindEvent(index: number): void {
@@ -1845,6 +1908,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.selectedWindEventIndex = index;
         const storm = STORMS[index];
         const root = this.findObjectByName("Globe Calibration");
+        this.syncSelectedWindMarker();
         const api = this.findAnyScriptApi(root, "focusWeatherEvent");
         if (api && typeof api.focusWeatherEvent === "function" && storm.lat !== null && storm.lon !== null) {
             api.focusWeatherEvent(
@@ -1855,6 +1919,15 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             );
         }
         this.syncVisualState();
+    }
+
+    private syncSelectedWindMarker(): void {
+        if (this.selectedWindEventIndex < 0) return;
+        const root = this.findObjectByName("Globe Calibration");
+        const markers = this.findAnyScriptApi(this.findObjectByName("Storm Markers") || this.findObjectByName("StormMarkers") || root, "selectWeatherEvent");
+        if (markers && typeof markers.selectWeatherEvent === "function") {
+            markers.selectWeatherEvent(this.selectedWindEventIndex);
+        }
     }
 
     private windEventCalloutDetail(storm: Storm): string {
@@ -1935,6 +2008,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             if (this.isMagneticDetailActive()) {
                 this.applyMagneticAdvancedControls();
             }
+            this.applyGradientControlsToActiveVectorField();
             this.beginMainExperiencePrioritySettle();
             return;
         }
@@ -1942,6 +2016,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         if (this.isMagneticDetailActive()) {
             this.applyMagneticAdvancedControls();
         }
+        this.applyGradientControlsToActiveVectorField();
         this.beginMainExperiencePrioritySettle();
     }
 
@@ -2073,7 +2148,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     }
 
     private syncDirectorGradientPalette(stepId: string): void {
-        if (stepId !== "theory" || !this.directorApi) return;
+        if (!this.directorApi || !this.isTheoryGradientControlContext(stepId)) return;
         const option = this.currentGradientPaletteOption();
         if (typeof this.directorApi.selectGradientPalette === "function") {
             if (typeof this.directorApi.getGradientPalette === "function") {
@@ -2085,7 +2160,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     }
 
     private syncDirectorGradientControls(stepId: string): void {
-        if (stepId !== "theory" || !this.directorApi) return;
+        if (!this.directorApi || !this.isTheoryGradientControlContext(stepId)) return;
         if (typeof this.directorApi.setGradientScale === "function") {
             this.directorApi.setGradientScale(this.gradientScaleValue);
         } else if (typeof this.directorApi.setColorMapScale === "function") {
@@ -2105,13 +2180,19 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     private applyGradientControlsToActiveVectorField(): void {
         const stepId = GUIDE_STEPS[this.currentIndex].id;
-        if (stepId !== "theory" || this.selectedTheoryMode === "motion") return;
+        if (!this.isGradientControlContext(stepId)) return;
 
-        const root = this.findObjectByName("Vector Field Examples Root");
+        const aeroContext = stepId === "examples" && this.selectedExampleField === "aerodynamics";
+        const root = aeroContext
+            ? this.findObjectByName("Car Fluid Flow")
+            : this.findObjectByName("Vector Field Examples Root");
         const api = this.findAnyScriptApi(root, "setColorMapScale") || this.findAnyScriptApi(root, "setGradientScale");
         if (!api) return;
 
-        const palette = this.currentGradientPaletteOption();
+        const palette = aeroContext ? this.paletteOptionForId("plasma") : this.currentGradientPaletteOption();
+        if (aeroContext && typeof api.setUseSpeedColorMap === "function") {
+            api.setUseSpeedColorMap(true);
+        }
         if (typeof api.setColorMap === "function") api.setColorMap(palette.id);
         else if (typeof api.setPalette === "function") api.setPalette(palette.id);
         else {
@@ -2133,6 +2214,18 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         if (typeof api.updateMaterialParams === "function") {
             api.updateMaterialParams();
         }
+    }
+
+    private isGradientControlContext(stepId: string): boolean {
+        return this.isTheoryGradientControlContext(stepId) ||
+            (stepId === "examples" && this.examplesDetailOpen && this.selectedExampleField === "aerodynamics");
+    }
+
+    private isTheoryGradientControlContext(stepId: string): boolean {
+        if (stepId === "theory") {
+            return this.theoryMenuOpen && this.selectedTheoryCard === "patterns" && this.selectedTheoryMode !== "motion";
+        }
+        return false;
     }
 
     private syncGradientValuesFromDirector(): void {
@@ -2181,6 +2274,11 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     private resetActiveVisual(): void {
         this.setProxyPlaneActive(false);
+        if (this.resetWindGlobeInPlaceIfActive()) {
+            this.keepPlaneControlsWhileFolded = false;
+            this.syncVisualState();
+            return;
+        }
         const director = this.directorApi as any;
         if (director) {
             if (typeof director.resetActiveVisual === "function") {
@@ -2193,6 +2291,23 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
         this.keepPlaneControlsWhileFolded = false;
         this.syncVisualState();
+    }
+
+    private resetWindGlobeInPlaceIfActive(): boolean {
+        if (!(this.examplesMenuOpen && this.examplesDetailOpen && this.selectedExampleField === "wind" && this.selectedWindVariant === "globe")) {
+            return false;
+        }
+        this.selectedWindEventIndex = -1;
+        const root = this.findObjectByName("Globe Calibration");
+        const rotator = this.findAnyScriptApi(root, "returnToRest");
+        if (rotator && typeof rotator.returnToRest === "function") {
+            rotator.returnToRest();
+        }
+        const markers = this.findAnyScriptApi(this.findObjectByName("Storm Markers") || this.findObjectByName("StormMarkers") || root, "clearWeatherEventSelection");
+        if (markers && typeof markers.clearWeatherEventSelection === "function") {
+            markers.clearWeatherEventSelection();
+        }
+        return true;
     }
 
     private bindMenuMoveHandle(binding: ButtonBinding, retries: number = 2): void {
@@ -2386,6 +2501,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         if (showMotion || showVector) {
             this.stageFallbackTheoryFieldMode();
             if (showVector) this.restoreVectorFieldTarget();
+            if (showVector) this.disableVectorFieldBoundsColliders(this.findObjectByName("Vector Field Examples Root"));
         }
         if (showGravity) {
             this.applyGravityStage(this.findObjectByName("Gravity Field Root"));
@@ -2400,6 +2516,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     private restoreVectorFieldTarget(): void {
         const root = this.findObjectByName("Vector Field Examples Root");
+        this.disableVectorFieldBoundsColliders(root);
         const target = root ? this.findInTree(root, "Target") : this.findObjectByName("Target");
         if (!target) return;
         target.enabled = true;
@@ -2418,6 +2535,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             const script = scripts[i] as any;
             if (script) script.enabled = true;
         }
+        this.disableVectorFieldBoundsColliders(root);
     }
 
     private setVectorFieldTargetEnabled(enabled: boolean): void {
@@ -2819,6 +2937,115 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         return this.findScriptApi(root, "calibrateIfNeeded") || this.findScriptApi(root, "setPlacementMode");
     }
 
+    private earthWindsPresentationActive(): boolean {
+        return this.examplesMenuOpen &&
+            this.examplesDetailOpen &&
+            this.selectedExampleField === "wind" &&
+            this.selectedWindVariant === "globe";
+    }
+
+    private analyticalPresentationActive(): boolean {
+        return this.theoryMenuOpen &&
+            this.selectedTheoryCard === "patterns" &&
+            GUIDE_STEPS[this.currentIndex].id === "theory";
+    }
+
+    private updateWeatherLayoutBlend(): void {
+        const target = this.earthWindsPresentationActive() ? 1.0 : 0.0;
+        const smoothing = Math.max(0.0, this.weatherLayoutSmoothing);
+        const alpha = this.clamp(getDeltaTime() * smoothing, 0.0, 1.0);
+        if (alpha >= 1.0) {
+            this.weatherLayoutBlend = target;
+        } else {
+            this.weatherLayoutBlend = this.weatherLayoutBlend + (target - this.weatherLayoutBlend) * alpha;
+        }
+        if (Math.abs(this.weatherLayoutBlend - target) < 0.001) {
+            this.weatherLayoutBlend = target;
+        }
+    }
+
+    private updateAnalyticalLayoutBlend(): void {
+        const target = this.analyticalPresentationActive() ? 1.0 : 0.0;
+        const smoothing = Math.max(0.0, this.weatherLayoutSmoothing);
+        const alpha = this.clamp(getDeltaTime() * smoothing, 0.0, 1.0);
+        if (alpha >= 1.0) {
+            this.analyticalLayoutBlend = target;
+        } else {
+            this.analyticalLayoutBlend = this.analyticalLayoutBlend + (target - this.analyticalLayoutBlend) * alpha;
+        }
+        if (Math.abs(this.analyticalLayoutBlend - target) < 0.001) {
+            this.analyticalLayoutBlend = target;
+        }
+    }
+
+    private weatherMenuOffset(): vec3 {
+        const analyticalLift = this.analyticalMenuLiftCm * this.analyticalLayoutBlend;
+        return new vec3(0.0, this.weatherMenuDropCm * this.weatherLayoutBlend + analyticalLift, 0.0);
+    }
+
+    private weatherGlobeOffset(): vec3 {
+        return new vec3(0.0, this.weatherGlobeLiftCm * this.weatherLayoutBlend, 0.0);
+    }
+
+    private weatherGlobeCenteredWorldPosition(): vec3 {
+        const menuTransform = this.sceneObject.getTransform();
+        const menuPosition = menuTransform.getWorldPosition();
+        const menuRotation = menuTransform.getWorldRotation();
+        const up = this.safeDirection(menuRotation.multiplyVec3(new vec3(0.0, 1.0, 0.0)), new vec3(0.0, 1.0, 0.0));
+        const forward = this.safeDirection(menuRotation.multiplyVec3(new vec3(0.0, 0.0, 1.0)), new vec3(0.0, 0.0, 1.0));
+        return menuPosition
+            .add(up.uniformScale(this.weatherGlobeLiftCm))
+            .add(forward.uniformScale(this.weatherGlobeForwardCm));
+    }
+
+    private updateFixedMenuWeatherPose(): void {
+        const transform = this.sceneObject.getTransform();
+        const current = transform.getLocalPosition();
+        const offset = this.weatherMenuOffset();
+
+        if (!this.menuWeatherBaseLocalPosition) {
+            this.menuWeatherBaseLocalPosition = current.sub(offset);
+        }
+
+        if (this.menuDragActive) {
+            this.menuWeatherBaseLocalPosition = current.sub(offset);
+            return;
+        }
+
+        if (!this.earthWindsPresentationActive() && this.weatherLayoutBlend <= 0.001) {
+            this.menuWeatherBaseLocalPosition = current;
+            return;
+        }
+
+        transform.setLocalPosition(this.menuWeatherBaseLocalPosition.add(offset));
+    }
+
+    private updateWeatherGlobePose(): void {
+        const globe = this.findObjectByName("Globe Calibration");
+        if (!globe) return;
+
+        const transform = globe.getTransform();
+        const current = transform.getLocalPosition();
+
+        if (!this.windGlobeBaseLocalPosition) {
+            this.windGlobeBaseLocalPosition = current;
+        }
+        if (!this.windGlobeBaseWorldPosition) {
+            this.windGlobeBaseWorldPosition = transform.getWorldPosition();
+        }
+
+        if (!this.earthWindsPresentationActive() && this.weatherLayoutBlend <= 0.001) {
+            this.windGlobeBaseLocalPosition = current;
+            this.windGlobeBaseWorldPosition = transform.getWorldPosition();
+            return;
+        }
+
+        const base = this.windGlobeBaseWorldPosition;
+        const target = this.weatherGlobeCenteredWorldPosition();
+        const blend = this.clamp(this.weatherLayoutBlend, 0.0, 1.0);
+        transform.setWorldPosition(this.mixVec3(base, target, blend));
+    }
+
     private findScriptApi(root: SceneObject | null, methodName: string): any {
         if (!root) return null;
         const scripts = root.getComponents("Component.ScriptComponent");
@@ -2846,7 +3073,10 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     private updateMenuPose(): void {
         this.applyMenuVisualScale();
-        if (!this.followUser) return;
+        if (!this.followUser) {
+            this.updateFixedMenuWeatherPose();
+            return;
+        }
         const camera = this.cameraRoot || this.findObjectByName("Camera Object") || this.findObjectByName("Camera");
         if (!camera) return;
 
@@ -2859,7 +3089,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         const right = this.safeDirection(new vec3(forward.z, 0.0, -forward.x), new vec3(1.0, 0.0, 0.0));
         const target = cameraPosition
             .add(right.uniformScale(this.menuHorizontalOffsetCm))
-            .add(worldUp.uniformScale(this.menuVerticalOffsetCm + this.menuLowerOffsetCm))
+            .add(worldUp.uniformScale(this.menuVerticalOffsetCm + this.menuLowerOffsetCm + this.weatherMenuDropCm * this.weatherLayoutBlend + this.analyticalMenuLiftCm * this.analyticalLayoutBlend))
             .add(forward.uniformScale(this.menuDistanceCm));
 
         const transform = this.sceneObject.getTransform();
@@ -3162,10 +3392,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     }
 
     private syncMotionInstructionState(): void {
-        const visible = !this.folded &&
-            this.theoryMenuOpen &&
-            this.selectedTheoryCard === "patterns" &&
-            this.selectedTheoryMode === "motion";
+        const visible = false;
         if (!this.motionInstructionObject) {
             if (visible) this.createMotionInstructionText();
             else return;
@@ -3176,7 +3403,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     }
 
     private syncGradientPaletteState(): void {
-        const visible = !this.folded && this.theoryMenuOpen && this.selectedTheoryCard === "patterns" && this.selectedTheoryMode !== "motion";
+        const visible = !this.folded && this.isTheoryGradientControlContext(GUIDE_STEPS[this.currentIndex].id);
         for (let i = 0; i < this.paletteButtons.length; i++) {
             const binding = this.paletteButtons[i];
             const option = this.paletteOptionForBinding(binding);
@@ -3195,7 +3422,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     }
 
     private syncGradientSliderState(): void {
-        const visible = !this.folded && this.theoryMenuOpen && this.selectedTheoryCard === "patterns" && this.selectedTheoryMode !== "motion";
+        const visible = !this.folded && this.isGradientControlContext(GUIDE_STEPS[this.currentIndex].id);
         for (let i = 0; i < this.gradientSliders.length; i++) {
             const binding = this.gradientSliders[i];
             binding.object.enabled = visible;
@@ -3264,6 +3491,38 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
         this.placeGradientSliderNow("scale", this.offsetSlot(GRADIENT_SCALE_SLOT));
         this.placeGradientSliderNow("offset", this.offsetSlot(GRADIENT_OFFSET_SLOT));
+    }
+
+    private updateGradientControlSlotsForContext(): void {
+        const stepId = GUIDE_STEPS[this.currentIndex].id;
+        if (stepId === "examples" && this.examplesDetailOpen && this.selectedExampleField === "aerodynamics") {
+            this.placeAeroGradientControlsNow();
+        } else if (stepId === "theory") {
+            this.placeTheoryGradientControlsNow();
+        }
+    }
+
+    private placeTheoryGradientControlsNow(): void {
+        for (let i = 0; i < GRADIENT_PALETTE_OPTIONS.length; i++) {
+            const option = GRADIENT_PALETTE_OPTIONS[i];
+            const binding = this.findCardBinding(this.paletteButtons, "palette:" + option.id);
+            if (!binding) continue;
+            this.placeButtonBindingNow(binding, this.offsetSlot(option.slot));
+        }
+        this.placeGradientSliderNow("scale", this.offsetSlot(GRADIENT_SCALE_SLOT));
+        this.placeGradientSliderNow("offset", this.offsetSlot(GRADIENT_OFFSET_SLOT));
+    }
+
+    private placeAeroGradientControlsNow(): void {
+        for (let i = 0; i < GRADIENT_PALETTE_OPTIONS.length; i++) {
+            const option = GRADIENT_PALETTE_OPTIONS[i];
+            const binding = this.findCardBinding(this.paletteButtons, "palette:" + option.id);
+            if (!binding) continue;
+            const slot = AERO_GRADIENT_PALETTE_SLOTS[i] || option.slot;
+            this.placeButtonBindingNow(binding, this.offsetSlot(slot));
+        }
+        this.placeGradientSliderNow("scale", this.offsetSlot(AERO_GRADIENT_SCALE_SLOT));
+        this.placeGradientSliderNow("offset", this.offsetSlot(AERO_GRADIENT_OFFSET_SLOT));
     }
 
     private placeButtonBindingNow(binding: ButtonBinding, slot: StoryGuideSlot): void {
@@ -3808,6 +4067,9 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             if (this.shouldPreserveInteractionRoot(rootName)) {
                 if (root && root.isEnabledInHierarchy) {
                     this.restoreCollidersInTree(root, !rootMoveEnabled);
+                    if (rootName === "Vector Field Examples Root" && this.theoryMenuOpen && this.selectedTheoryCard === "patterns" && this.selectedTheoryMode !== "motion") {
+                        this.disableVectorFieldBoundsColliders(root);
+                    }
                     if (!rootMoveEnabled) {
                         this.setOwnCollidersEnabled(root, false);
                     }
@@ -3863,6 +4125,19 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
         for (let i = 0; i < root.getChildrenCount(); i++) {
             this.restoreCollidersInTree(root.getChild(i));
+        }
+    }
+
+    private disableVectorFieldBoundsColliders(root: SceneObject | null): void {
+        if (!root) return;
+        const scripts = root.getComponents("Component.ScriptComponent");
+        for (let i = 0; i < scripts.length; i++) {
+            const script = scripts[i] as any;
+            const fieldCollider = script ? script.fieldCollider as ColliderComponent : null;
+            if (fieldCollider) fieldCollider.enabled = false;
+        }
+        for (let i = 0; i < root.getChildrenCount(); i++) {
+            this.disableVectorFieldBoundsColliders(root.getChild(i));
         }
     }
 
@@ -3935,6 +4210,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         if (field === "aerodynamics") {
             this.selectedWindVariant = "car_flow";
             this.selectedWindTubeMode = 0;
+            this.selectedGradientPalette = "plasma";
         }
         if (GUIDE_STEPS[this.currentIndex].id !== "examples") {
             this.currentIndex = this.stepIndexForId("examples");
@@ -4065,6 +4341,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.hideTheoryCardButtonsNow();
 
         if (id === "patterns") {
+            this.disableProxyForAnalyticalFields();
             this.stageCurrentRoot();
             this.syncDirectorTheoryFieldMode("theory");
             this.syncDirectorGradientPalette("theory");
@@ -4080,6 +4357,13 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             this.forceTheoryPatternInterfaceNow();
         } else {
             this.theoryPatternUiSettleRemaining = 0.0;
+        }
+    }
+
+    private disableProxyForAnalyticalFields(): void {
+        this.setProxyPlaneActive(false);
+        if (this.directorApi && typeof this.directorApi.setExampleManipulationEnabled === "function") {
+            this.directorApi.setExampleManipulationEnabled(false);
         }
     }
 
@@ -4110,6 +4394,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             return;
         }
         this.theoryMenuOpen = true;
+        this.disableProxyForAnalyticalFields();
         this.syncDirectorTheoryFieldMode("theory");
         this.syncDirectorGradientPalette("theory");
         this.syncDirectorGradientControls("theory");
@@ -4121,15 +4406,19 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     private selectGradientPalette(id: GradientPaletteId): void {
         this.selectedGradientPalette = id;
-        if (GUIDE_STEPS[this.currentIndex].id !== "theory") {
+        const stepId = GUIDE_STEPS[this.currentIndex].id;
+        if (!this.isGradientControlContext(stepId)) {
             this.goTo(this.stepIndexForId("theory"));
             return;
         }
-        this.theoryMenuOpen = true;
-        this.syncDirectorGradientPalette("theory");
-        this.syncDirectorGradientControls("theory");
-        if (!this.directorApi || typeof this.directorApi.selectGradientPalette !== "function") {
-            this.stageFallbackContent("theory");
+        if (stepId === "theory") {
+            this.theoryMenuOpen = true;
+        }
+        this.syncDirectorGradientPalette(stepId);
+        this.syncDirectorGradientControls(stepId);
+        this.applyGradientControlsToActiveVectorField();
+        if (stepId === "theory" && (!this.directorApi || typeof this.directorApi.selectGradientPalette !== "function")) {
+            this.stageFallbackContent(stepId);
         }
         this.syncVisualState();
     }

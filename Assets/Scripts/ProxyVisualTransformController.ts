@@ -116,6 +116,11 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
     @hint("Frames that the selected visual must have stable measurable bounds before auto-activating the proxy.")
     autoActivateReadyFrames: number = 3;
 
+    @input('float')
+    @widget(new SliderWidget(0, 6, 0.1))
+    @hint("Seconds that the proxy softly blinks after activation. Set to 0 to disable the activation blink.")
+    activationBlinkSeconds: number = 2.5;
+
     @input
     @hint("Apply proxy scale changes to the active visual root.")
     driveScale: boolean = true;
@@ -149,14 +154,16 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
     private proxyInteractableEventsBound: boolean = false;
     private proxyManipulationEventsBound: boolean = false;
     private proxyMotionHighlightSeconds: number = 0.0;
+    private activationBlinkRemaining: number = 0.0;
     private lastProxyFeedbackPose: ProxyPose | null = null;
     private pendingAutoActivateKey: string = "";
     private pendingAutoActivateSignature: string = "";
     private pendingAutoActivateFrames: number = 0;
-    private proxyInactiveColor: vec4 = new vec4(0.18, 0.46, 1.0, 0.52);
+    private suppressedAutoActivateKey: string = "";
+    private proxyInactiveColor: vec4 = new vec4(0.16, 0.42, 1.0, 0.10);
     private proxyActiveColor: vec4 = new vec4(0.38, 0.68, 1.0, 0.78);
     private proxyManipulatingColor: vec4 = new vec4(0.58, 0.96, 1.0, 1.0);
-    private proxyDisabledColor: vec4 = new vec4(0.10, 0.20, 0.36, 0.22);
+    private proxyDisabledColor: vec4 = new vec4(0.06, 0.12, 0.22, 0.03);
     private proxyOutlineColor: vec4 = new vec4(0.26, 0.58, 1.0, 1.0);
     private proxyManipulatingOutlineColor: vec4 = new vec4(0.72, 1.0, 1.0, 1.0);
 
@@ -197,6 +204,7 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
 
         this.activeRoot = root;
         this.activeKey = this.resolveActiveVisualKey(root);
+        this.suppressedAutoActivateKey = "";
         this.snapToDock();
         this.active = true;
         this.returningToDock = false;
@@ -207,14 +215,18 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         this.baseRoots = [];
         this.basePoses = [];
         this.basePoseForRoot(root);
+        this.activationBlinkRemaining = Math.max(0.0, this.activationBlinkSeconds);
         this.setProxyAvailable(true);
         return true;
     }
 
     public deactivate(): void {
+        const suppressRoot = this.activeRoot || this.resolveActiveVisualRoot();
+        const suppressKey = suppressRoot ? this.resolveActiveVisualKey(suppressRoot) : "";
         this.active = false;
         this.proxyManipulating = false;
         this.proxyMotionHighlightSeconds = 0.0;
+        this.activationBlinkRemaining = 0.0;
         this.lastProxyFeedbackPose = null;
         this.activeRoot = null;
         this.activeKey = "";
@@ -225,6 +237,7 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         this.pendingAutoActivateKey = "";
         this.pendingAutoActivateSignature = "";
         this.pendingAutoActivateFrames = 0;
+        this.suppressedAutoActivateKey = suppressKey;
         this.setProxyAvailable(this.resolveActiveVisualRoot() !== null);
         this.beginDockTween();
     }
@@ -276,12 +289,13 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         const root = this.resolveActiveVisualRoot();
         const available = root !== null;
         this.updateProxyMotionHighlight();
-        if (this.autoActivateOnVisualSelected && available && !this.active && root) {
+        if (this.autoActivateOnVisualSelected && available && !this.active && root && !this.autoActivateSuppressedFor(root)) {
             if (this.selectedVisualReadyForAutoActivate(root)) {
                 this.activate();
                 return;
             }
         } else if (!available || this.active) {
+            if (!available) this.suppressedAutoActivateKey = "";
             this.resetPendingAutoActivate();
         }
         this.setProxyAvailable(available || this.active || this.returningToDock);
@@ -429,8 +443,8 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         let towardUserCm = Math.max(0.0, this.visualDockTowardUserCm);
         let scaleBoost = 1.0;
         if (placement === PROXY_DOCK_TABLETOP) {
-            belowGap += 3.0;
-            towardUserCm += 3.0;
+            belowGap = Math.min(belowGap, 2.0);
+            towardUserCm = Math.min(towardUserCm, 12.0);
             scaleBoost = 1.12;
         } else if (placement === PROXY_DOCK_HAND_REACH) {
             belowGap += 6.0;
@@ -595,6 +609,14 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         return this.pendingAutoActivateFrames >= Math.max(1, Math.floor(this.autoActivateReadyFrames));
     }
 
+    private autoActivateSuppressedFor(root: SceneObject): boolean {
+        if (!this.suppressedAutoActivateKey || this.suppressedAutoActivateKey.length === 0) return false;
+        const key = this.resolveActiveVisualKey(root) || root.name || "";
+        if (key === this.suppressedAutoActivateKey) return true;
+        this.suppressedAutoActivateKey = "";
+        return false;
+    }
+
     private resetPendingAutoActivate(): void {
         this.pendingAutoActivateKey = "";
         this.pendingAutoActivateSignature = "";
@@ -727,6 +749,7 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
 
     private updateProxyVisualState(available: boolean): void {
         const alpha = this.clamp(getDeltaTime() * 14.0, 0.0, 1.0);
+        this.activationBlinkRemaining = Math.max(0.0, this.activationBlinkRemaining - getDeltaTime());
         const activeTarget = this.active ? 1.0 : 0.0;
         const availableTarget = available ? 1.0 : 0.0;
         const manipulatingTarget = this.isProxyManipulating() ? 1.0 : 0.0;
@@ -737,8 +760,10 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         const resting = this.mixVec4(this.proxyDisabledColor, this.proxyInactiveColor, this.proxyAvailableVisual);
         let color = this.mixVec4(resting, this.proxyActiveColor, this.proxyActiveVisual);
         color = this.mixVec4(color, this.proxyManipulatingColor, this.proxyManipulatingVisual);
-        if (this.proxyActiveVisual > 0.01) {
-            const pulse = (0.5 + 0.5 * Math.sin(getTime() * 5.2)) * 0.02 * this.proxyActiveVisual;
+        const blinkWindow = Math.max(0.001, this.activationBlinkSeconds);
+        const activationBlink = this.clamp(this.activationBlinkRemaining / blinkWindow, 0.0, 1.0);
+        if (this.proxyActiveVisual > 0.01 && activationBlink > 0.0) {
+            const pulse = (0.5 + 0.5 * Math.sin(getTime() * 5.2)) * 0.02 * this.proxyActiveVisual * activationBlink;
             color = new vec4(color.x, color.y, color.z, this.clamp(color.w + pulse, 0.0, 1.0));
         }
 
