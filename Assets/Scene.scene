@@ -5039,7 +5039,6 @@
       initialVectorColorMap: !<float> 18.000000
       vectorColorMapScale: !<float> 1.000000
       vectorColorMapOffset: !<float> 0.000000
-      motionFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -30.000000}
       theoryVectorFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -50.000000}
       analyticalTabletopOffset: !<Vec3> {x: 0.000000, y: -38.000000, z: -72.000000}
       analyticalVectorFieldOffset: !<Vec3> {x: 0.000000, y: -10.000000, z: 25.000000}

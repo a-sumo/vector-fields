@@ -184,10 +184,6 @@ export class StoryStepDirector extends BaseScriptComponent {
     vectorColorMapOffset: number = 0.0;
 
     @input
-    @hint("Camera-relative placement for the 2D motion plane.")
-    motionFrontOffset: vec3 = new vec3(0.0, 0.0, -30.0);
-
-    @input
     @hint("Camera-relative placement for the real VectorField in the theory chapter.")
     theoryVectorFrontOffset: vec3 = new vec3(0.0, 0.0, -50.0);
 
