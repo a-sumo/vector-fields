@@ -106,7 +106,7 @@ export class CFDPanel extends BaseScriptComponent {
   }
 
   private createTexture(): void {
-    this.texture = ProceduralTextureProvider.create(this.W, this.H, Colorspace.RGBA);
+    this.texture = ProceduralTextureProvider.createWithFormat(this.W, this.H, TextureFormat.RGBA8Unorm);
     this.targetMaterial.mainPass.baseTex = this.texture;
     this.writePixels();
   }
@@ -116,7 +116,7 @@ export class CFDPanel extends BaseScriptComponent {
       this.allocate();
       this.rebuildAirfoilIfNeeded();
       this.initLattice();
-      this.texture = ProceduralTextureProvider.create(this.W, this.H, Colorspace.RGBA);
+      this.texture = ProceduralTextureProvider.createWithFormat(this.W, this.H, TextureFormat.RGBA8Unorm);
       this.targetMaterial.mainPass.baseTex = this.texture;
     } else if (this.rebuildAirfoilIfNeeded()) {
       this.initLattice();
