@@ -1,4 +1,5 @@
-import { FLOW_PATHS } from "./FlowPaths";
+import { CAR_CFD_TIME_SERIES } from "./CarCfdTimeSeries";
+import { AIRFOIL_CFD_TIME_SERIES } from "./AirfoilCfdTimeSeries";
 
 const DEFAULT_TUBE_MATERIAL: Material = requireAsset("../OrientedTubeGlyph.mat") as Material;
 
@@ -8,6 +9,13 @@ const DEFAULT_TUBE_MATERIAL: Material = requireAsset("../OrientedTubeGlyph.mat")
 @component
 export class CarFlowStreamlines extends BaseScriptComponent {
   @input material: Material;
+  @input
+  @widget(new ComboBoxWidget([
+    new ComboBoxItem("Airfoil CFD", 1),
+    new ComboBoxItem("Car CFD", 0),
+  ]))
+  @hint("Offline CFD dataset used by the slice renderer.")
+  dataSet: number = 1;
   @input
   @allowUndefined
   @hint("Separate material for fast car-flow ribbon glyphs. Use a CarFlowRibbonGlyph shader material here.")
@@ -50,11 +58,28 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   colorMap: number = 18;
   @input('float') colorMapScale: number = 1.0;
   @input('float') colorMapOffset: number = 0.0;
+  @input('bool')
+  @hint("Temporary CFD diagnostic overlay: draws the obstacle mask outline used by the baked solver.")
+  showObstacleMaskOutline: boolean = true;
+  @input('bool')
+  @hint("Suppresses glyphs whose centers fall inside the baked CFD obstacle silhouette.")
+  maskGlyphsInsideObstacle: boolean = true;
+  @input('float') obstacleMaskOutlineWidth: number = 0.055;
+  @input
+  @widget(new ColorWidget())
+  obstacleMaskOutlineColor: vec4 = new vec4(0.0, 1.0, 1.0, 0.95);
 
   // slice control — which baked Z-slice's geo is built
   @input('bool') autoScroll: boolean = false;
   @input('float') autoScrollSpeed: number = 0.2;
   @input('bool') driveFromPosition: boolean = true;
+  @input
+  @allowUndefined
+  @hint("Optional object to read slice drag from. Leave empty to use this object's transform.")
+  sliceControlObject: SceneObject;
+  @input('bool')
+  @hint("Read drag in world space so Lens Studio/parent-object drags update the active slice.")
+  driveFromWorldPosition: boolean = true;
   @input('int') axis: number = 2;
   @input('float') travel: number = 3.635;
 
@@ -62,13 +87,42 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   private rmv: RenderMeshVisual;
   private glyphMaterialInstance: Material | null = null;
   private nz: number = 1;
+  private nt: number = 1;
   private builtSlice: number = -1;          // which slice the current mesh holds
+  private builtFrame: number = -1;          // which CFD time frame the current mesh holds
   private home: vec3 = new vec3(0, 0, 0);   // aligned rest position; slide is relative to this
+  private worldHome: vec3 = new vec3(0, 0, 0);
+  private worldAxisHome: vec3 = new vec3(0, 0, 1);
+  private scriptHome: vec3 = new vec3(0, 0, 0);
+  private scriptWorldHome: vec3 = new vec3(0, 0, 0);
+  private autoSliceControlObject: SceneObject | null = null;
   private readonly smoothSamplesPerSegment: number = 4;
+  private obstacleOutlineObject: SceneObject | null = null;
+  private obstacleOutlineVisual: RenderMeshVisual | null = null;
+  private obstacleOutlineMaterialInstance: Material | null = null;
+  private obstacleOutlineBuilt: boolean = false;
+  private obstacleOutlineSlice: number = -1;
+  private activeDataSet: number = -1;
+
+  private cfdData(): any {
+    return Math.floor(this.dataSet) === 0 ? CAR_CFD_TIME_SERIES : AIRFOIL_CFD_TIME_SERIES;
+  }
+
+  private refreshDataSetIfNeeded(): void {
+    const dataSet = Math.floor(this.dataSet) === 0 ? 0 : 1;
+    if (dataSet === this.activeDataSet) return;
+    this.activeDataSet = dataSet;
+    const data = this.cfdData();
+    this.nz = data.NZ;
+    this.nt = Math.max(1, Math.floor(data.NT || 1));
+    this.builtSlice = -1;
+    this.builtFrame = -1;
+    this.obstacleOutlineBuilt = false;
+  }
 
   onAwake(): void {
-    this.nz = FLOW_PATHS.NZ;
-    this.home = this.getTransform().getLocalPosition();
+    this.refreshDataSetIfNeeded();
+    this.captureSliceHome();
     this.createScriptApi();
 
     let rmv = this.sceneObject.getComponent("Component.RenderMeshVisual") as RenderMeshVisual;
@@ -77,8 +131,10 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     this.applyMaterialForMode();
 
     // build the starting slice so something shows before the first drag
-    this.buildSlice(Math.round(0.5 * (this.nz - 1)));
-    print("[CarFlowStreamlines] ready, " + this.nz + " slices (geo rebuilt on slice change)");
+    const startingSlice = Math.round(0.5 * (this.nz - 1));
+    this.buildSlice(startingSlice, this.currentFrameIndex());
+    this.updateObstacleMaskOutline(startingSlice);
+    print("[CarFlowStreamlines] ready, " + this.nz + " slices x " + this.nt + " CFD time frames");
     this.createEvent('UpdateEvent').bind(() => this.tick());
   }
 
@@ -86,7 +142,11 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     const self = this;
     (this as any).windApi = {
       sampleTubeGlyphField: (x: number, z: number, time?: number) => self.sampleTubeGlyphField(x, z, time),
+      refresh: () => self.refresh(),
       getCurrentSlice: () => self.sliceFromControl(),
+      getCurrentSlice01: () => self.slice01FromControl(),
+      refreshSliceHome: () => self.captureSliceHome(),
+      setSlice01: (value: number) => self.setSlice01(value),
       getTubeGlyphFieldState: () => self.getTubeGlyphFieldState(),
       getTubeGlyphFieldSignature: () => self.getTubeGlyphFieldSignature(),
       setRenderMode: (mode: number | string) => self.setRenderMode(mode),
@@ -105,6 +165,16 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       getColorMapScale: () => self.colorMapScale,
       getColorMapOffset: () => self.colorMapOffset,
     };
+  }
+
+  public refresh(): void {
+    this.captureSliceHome();
+    this.builtSlice = -1;
+    this.builtFrame = -1;
+    this.obstacleOutlineBuilt = false;
+    const slice = this.sliceFromControl();
+    this.buildSlice(slice, this.currentFrameIndex());
+    this.updateObstacleMaskOutline(slice);
   }
 
   public setColorMap(value: number | string): void {
@@ -137,7 +207,8 @@ export class CarFlowStreamlines extends BaseScriptComponent {
 
   private rebuildCurrentSlice(): void {
     this.builtSlice = -1;
-    this.buildSlice(this.sliceFromControl());
+    this.builtFrame = -1;
+    this.buildSlice(this.sliceFromControl(), this.currentFrameIndex());
   }
 
   private normalizeColorMap(value: number | string): number {
@@ -164,7 +235,8 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     }
     this.applyMaterialForMode();
     this.builtSlice = -1;
-    this.buildSlice(this.sliceFromControl());
+    this.builtFrame = -1;
+    this.buildSlice(this.sliceFromControl(), this.currentFrameIndex());
   }
 
   public getTubeGlyphFieldState(): { slice: number, slice01: number, planeWidth: number, planeDepth: number, plane: string, phase: number, phaseSpeed: number } {
@@ -186,21 +258,26 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       state.slice,
       state.planeWidth.toFixed(2),
       state.planeDepth.toFixed(2),
+      this.currentFrameIndex(),
       this.phaseSpeed.toFixed(3),
       this.speedScaleRef.toFixed(3),
     ].join(":");
   }
 
   public sampleTubeGlyphField(x: number, z: number, time?: number): { x: number, z: number, speed: number, intensity: number } {
-    const D = FLOW_PATHS;
+    const D = this.cfdData();
     const k = Math.max(0, Math.min(D.NZ - 1, this.sliceFromControl()));
     return this.sampleSliceVector(k, x, z, time === undefined ? getTime() : time, true);
   }
 
   private tick(): void {
+    this.refreshDataSetIfNeeded();
     this.applyMaterialForMode();
     const k = this.sliceFromControl();
-    if (k !== this.builtSlice) this.buildSlice(k);   // update the geo when the slice changes
+    const frame = this.currentFrameIndex();
+    if (k !== this.builtSlice || frame !== this.builtFrame) this.buildSlice(k, frame);
+    this.updateObstacleMaskOutline(k);
+    this.updateObstacleMaskOutlineVisibility();
     if (this.pass) {
       try { this.pass.Time = getTime(); } catch (e) {}
       try { this.pass.PhaseSpeed = this.phaseSpeed; } catch (e) {}
@@ -212,6 +289,10 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   // Resolve the active slice index from auto-scroll or the draggable position,
   // keeping the object locked to its slide axis through home.
   private sliceFromControl(): number {
+    return Math.max(0, Math.min(this.nz - 1, Math.round(this.slice01FromControl() * (this.nz - 1))));
+  }
+
+  private slice01FromControl(): number {
     let s = 0.5;
     const half = this.travel * 0.5;
     const h = this.home;
@@ -221,28 +302,127 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       this.setSlide(h, c);
       s = c / this.travel + 0.5;
     } else if (this.driveFromPosition) {
-      const p = this.getTransform().getLocalPosition();
-      let c = this.axis === 0 ? p.x - h.x : this.axis === 1 ? p.y - h.y : p.z - h.z;
+      let c = this.resolveControlOffset();
       c = Math.max(-half, Math.min(half, c));
-      this.setSlide(h, c);
+      if (!this.driveFromWorldPosition) this.setSlide(h, c);
       s = c / this.travel + 0.5;
     }
-    return Math.max(0, Math.min(this.nz - 1, Math.round(s * (this.nz - 1))));
+    return this.clamp(s, 0.0, 1.0);
+  }
+
+  private setSlice01(value: number): void {
+    const t = this.clamp(value, 0.0, 1.0);
+    const c = (t - 0.5) * this.travel;
+    if (this.driveFromWorldPosition) {
+      const control = this.sliceControl();
+      const target = this.worldHome.add(this.worldAxisHome.uniformScale(c));
+      control.getTransform().setWorldPosition(target);
+    } else {
+      this.setSlide(this.home, c);
+    }
+    this.rebuildCurrentSlice();
+  }
+
+  private captureSliceHome(): void {
+    const control = this.sliceControl();
+    this.home = control.getTransform().getLocalPosition();
+    this.worldHome = control.getTransform().getWorldPosition();
+    const rotation = control.getTransform().getWorldRotation();
+    this.worldAxisHome = rotation.multiplyVec3(this.localAxisVector()).normalize();
+    this.scriptHome = this.sceneObject.getTransform().getLocalPosition();
+    this.scriptWorldHome = this.sceneObject.getTransform().getWorldPosition();
+  }
+
+  private sliceControl(): SceneObject {
+    if (this.sliceControlObject) return this.sliceControlObject;
+    if (!this.autoSliceControlObject) {
+      this.autoSliceControlObject = this.findObjectByNameInTree(this.sceneObject, "Flow Slice Gizmo") ||
+        this.findObjectByNameInTree(this.sceneObject, "FlowSliceGizmo");
+    }
+    return this.autoSliceControlObject || this.sceneObject;
+  }
+
+  private findObjectByNameInTree(root: SceneObject | null, name: string): SceneObject | null {
+    if (!root) return null;
+    if (root.name === name) return root;
+    for (let i = 0; i < root.getChildrenCount(); i++) {
+      const found = this.findObjectByNameInTree(root.getChild(i), name);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private controlLocalOffset(): number {
+    const p = this.sliceControl().getTransform().getLocalPosition();
+    const h = this.home;
+    return this.axis === 0 ? p.x - h.x : this.axis === 1 ? p.y - h.y : p.z - h.z;
+  }
+
+  private controlWorldOffset(): number {
+    const p = this.sliceControl().getTransform().getWorldPosition();
+    const d = p.sub(this.worldHome);
+    return d.dot(this.worldAxisHome);
+  }
+
+  private scriptLocalOffset(): number {
+    const p = this.sceneObject.getTransform().getLocalPosition();
+    const h = this.scriptHome;
+    return this.axis === 0 ? p.x - h.x : this.axis === 1 ? p.y - h.y : p.z - h.z;
+  }
+
+  private scriptWorldAxisOffset(): number {
+    const p = this.sceneObject.getTransform().getWorldPosition();
+    return p.sub(this.scriptWorldHome).dot(this.worldAxisHome);
+  }
+
+  private scriptWorldDepthOffset(): number {
+    const p = this.sceneObject.getTransform().getWorldPosition();
+    return p.z - this.scriptWorldHome.z;
+  }
+
+  private controlWorldDepthOffset(): number {
+    const p = this.sliceControl().getTransform().getWorldPosition();
+    return p.z - this.worldHome.z;
+  }
+
+  private resolveControlOffset(): number {
+    if (!this.driveFromWorldPosition) return this.controlLocalOffset();
+    const candidates = [
+      this.controlWorldOffset(),
+      this.controlLocalOffset(),
+      this.scriptWorldAxisOffset(),
+      this.scriptLocalOffset(),
+      this.controlWorldDepthOffset(),
+      this.scriptWorldDepthOffset(),
+    ];
+    let best = 0.0;
+    for (let i = 0; i < candidates.length; i++) {
+      const v = candidates[i];
+      if (isNaN(v)) continue;
+      if (Math.abs(v) > Math.abs(best)) best = v;
+    }
+    return best;
+  }
+
+  private localAxisVector(): vec3 {
+    if (this.axis === 0) return new vec3(1.0, 0.0, 0.0);
+    if (this.axis === 1) return new vec3(0.0, 1.0, 0.0);
+    return new vec3(0.0, 0.0, 1.0);
   }
 
   // Build geo for ONE slice. The primary path is ribbon glyphs: 4 verts per
   // sample, no caps, no per-frame rebuild, and still aligned to the slice data.
-  private buildSlice(k: number): void {
+  private buildSlice(k: number, frame: number): void {
     if (this.isDebugTubeMode()) {
-      this.buildTubeSlice(k);
+      this.buildTubeSlice(k, frame);
     } else if (this.isStreamlineRibbonMode()) {
-      this.buildRibbonSlice(k);
+      this.buildRibbonSlice(k, frame);
     } else {
-      this.buildRibbonGlyphSlice(k);
+      this.buildRibbonGlyphSlice(k, frame);
     }
   }
 
-  private buildRibbonGlyphSlice(k: number): void {
+  private buildRibbonGlyphSlice(k: number, frame: number): void {
     const cols = Math.max(3, Math.floor(this.tubeColumns));
     const rows = Math.max(3, Math.floor(this.tubeRows));
     const hw = this.planeWidth * 0.5;
@@ -267,7 +447,8 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       const y = rows === 1 ? 0.0 : -hh + (row / (rows - 1)) * this.planeHeight;
       for (let col = 0; col < cols; col++) {
         const x = cols === 1 ? 0.0 : -hw + (col / (cols - 1)) * this.planeWidth;
-        const sample = this.sampleSliceVector(k, x, y, time, false);
+        if (this.maskGlyphsInsideObstacle && this.isInsideObstaclePlane(k, x, y)) continue;
+        const sample = this.sampleSliceVectorAtFrame(k, frame, x, y, time, false);
         if (sample.speed < 0.018) continue;
         const waveCoord = (col / Math.max(1, cols - 1)) * 2.4 + (row / Math.max(1, rows - 1)) * 0.55;
         const dirX = sample.x / sample.speed;
@@ -286,14 +467,15 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       this.rmv.enabled = true;
     } else {
       print("[CarFlowStreamlines] ribbon glyph slice " + k + " produced no visible glyphs; falling back to streamline ribbons");
-      this.buildRibbonSlice(k);
+      this.buildRibbonSlice(k, frame);
       return;
     }
     this.builtSlice = k;
+    this.builtFrame = frame;
   }
 
-  private buildRibbonSlice(k: number): void {
-    const D = FLOW_PATHS;
+  private buildRibbonSlice(k: number, frame: number): void {
+    const D = this.cfdData();
     const N = D.N;
     const X0 = D.X0, X1 = D.X1, Y0 = D.Y0, Y1 = D.Y1;
     const mapX = (x: number) => ((x - X0) / (X1 - X0)) * this.planeWidth - this.planeWidth * 0.5;
@@ -313,7 +495,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     const verts: number[] = [];
     const idx: number[] = [];
     let vbase = 0;
-    const slice = D.slices[k];
+    const slice = this.slicePaths(k, frame);
     for (let t = 0; t < N; t++) {
       const ln = slice[t]; const xs = ln.x, ys = ln.y, sp = ln.sp;
       const phase = (t * 0.6180339887) % 1.0;
@@ -342,10 +524,10 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     mb.updateMesh();
     this.rmv.mesh = mb.getMesh();
     this.builtSlice = k;
+    this.builtFrame = frame;
   }
 
-  private buildTubeSlice(k: number): void {
-    const D = FLOW_PATHS;
+  private buildTubeSlice(k: number, frame: number): void {
     const cols = Math.max(3, Math.floor(this.tubeColumns));
     const rows = Math.max(3, Math.floor(this.tubeRows));
     const hw = this.planeWidth * 0.5;
@@ -369,7 +551,8 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       const y = rows === 1 ? 0.0 : -hh + (row / (rows - 1)) * this.planeHeight;
       for (let col = 0; col < cols; col++) {
         const x = cols === 1 ? 0.0 : -hw + (col / (cols - 1)) * this.planeWidth;
-        const sample = this.sampleSliceVector(k, x, y, time, true);
+        if (this.maskGlyphsInsideObstacle && this.isInsideObstaclePlane(k, x, y)) continue;
+        const sample = this.sampleSliceVectorAtFrame(k, frame, x, y, time, true);
         if (sample.speed < 0.01) continue;
         const len = baseLength * this.clamp(0.64 + sample.intensity * 0.46, 0.58, 1.18);
         const color = this.colorForValue(sample.intensity);
@@ -380,14 +563,216 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     mb.updateMesh();
     this.rmv.mesh = mb.getMesh();
     this.builtSlice = k;
+    this.builtFrame = frame;
+  }
+
+  private updateObstacleMaskOutline(sliceIndex: number): void {
+    if (this.obstacleOutlineBuilt && this.obstacleOutlineSlice === sliceIndex) {
+      this.updateObstacleMaskOutlineVisibility();
+      return;
+    }
+
+    const D = this.cfdData();
+    const obstacle = D.obstacle;
+    const slice = this.obstacleSlice(sliceIndex);
+    const segments = slice && slice.outlineSegments ? slice.outlineSegments : (obstacle ? obstacle.outlineSegments : null);
+    if (!segments || segments.length === 0) {
+      this.obstacleOutlineBuilt = true;
+      this.obstacleOutlineSlice = sliceIndex;
+      if (this.obstacleOutlineVisual) this.obstacleOutlineVisual.enabled = false;
+      return;
+    }
+
+    const visual = this.ensureObstacleOutlineVisual();
+    if (!visual) return;
+
+    const mb = new MeshBuilder([
+      { name: "position", components: 3 },
+      { name: "normal", components: 3 },
+      { name: "texture0", components: 2 },
+      { name: "texture1", components: 2 },
+      { name: "texture2", components: 2 },
+    ]);
+    mb.topology = MeshTopology.Triangles;
+    mb.indexType = MeshIndexType.UInt16;
+
+    const width = Math.max(0.004, this.obstacleMaskOutlineWidth);
+    const color = this.sanitizeColor(this.obstacleMaskOutlineColor);
+    for (let i = 0; i < segments.length; i++) {
+      const s = segments[i];
+      if (!s || s.length < 4) continue;
+      this.appendXYSegmentQuad(
+        mb,
+        this.dataToPlaneX(s[0]),
+        this.dataToPlaneY(s[1]),
+        this.dataToPlaneX(s[2]),
+        this.dataToPlaneY(s[3]),
+        width,
+        Math.max(this.tubeNormalLift + 0.04, 0.14),
+        color
+      );
+    }
+
+    mb.updateMesh();
+    visual.mesh = mb.getMesh();
+    try { visual.renderOrder = 704; } catch (e) {}
+    this.obstacleOutlineBuilt = true;
+    this.obstacleOutlineSlice = sliceIndex;
+    this.updateObstacleMaskOutlineVisibility();
+  }
+
+  private updateObstacleMaskOutlineVisibility(): void {
+    if (this.obstacleOutlineVisual) {
+      this.obstacleOutlineVisual.enabled = !!this.showObstacleMaskOutline;
+    }
+    if (this.obstacleOutlineObject) {
+      this.obstacleOutlineObject.enabled = !!this.showObstacleMaskOutline;
+    }
+  }
+
+  private ensureObstacleOutlineVisual(): RenderMeshVisual | null {
+    if (!this.obstacleOutlineObject) {
+      this.obstacleOutlineObject = global.scene.createSceneObject("__CfdObstacleMaskOutline");
+      this.obstacleOutlineObject.setParent(this.sceneObject);
+      this.obstacleOutlineObject.getTransform().setLocalPosition(new vec3(0, 0, 0));
+      this.obstacleOutlineObject.getTransform().setLocalRotation(quat.quatIdentity());
+      this.obstacleOutlineObject.getTransform().setLocalScale(new vec3(1, 1, 1));
+    }
+    if (!this.obstacleOutlineVisual) {
+      this.obstacleOutlineVisual = this.obstacleOutlineObject.createComponent("Component.RenderMeshVisual") as RenderMeshVisual;
+    }
+    const material = this.getObstacleOutlineMaterialInstance();
+    if (material) {
+      this.obstacleOutlineVisual.mainMaterial = material;
+      this.configureOverlayPass(material.mainPass as any);
+    }
+    return this.obstacleOutlineVisual;
+  }
+
+  private getObstacleOutlineMaterialInstance(): Material | null {
+    if (!this.obstacleOutlineMaterialInstance) {
+      const source = this.glyphMaterial || DEFAULT_TUBE_MATERIAL;
+      try {
+        this.obstacleOutlineMaterialInstance = source.clone();
+      } catch (e) {
+        this.obstacleOutlineMaterialInstance = source;
+      }
+    }
+    return this.obstacleOutlineMaterialInstance;
+  }
+
+  private configureOverlayPass(pass: any): void {
+    if (!pass) return;
+    try { pass.depthTest = false; } catch (e) {}
+    try { pass.DepthTest = false; } catch (e) {}
+    try { pass.depthWrite = false; } catch (e) {}
+    try { pass.DepthWrite = false; } catch (e) {}
+    try { pass.twoSided = true; } catch (e) {}
+    try { pass.TwoSided = true; } catch (e) {}
+    try { pass.blendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+    try { pass.BlendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+  }
+
+  private isInsideObstaclePlane(sliceIndex: number, x: number, y: number): boolean {
+    return this.isInsideObstacleData(sliceIndex, this.planeToDataX(x), this.planeToDataY(y));
+  }
+
+  private isInsideObstacleData(sliceIndex: number, x: number, y: number): boolean {
+    const slice = this.obstacleSlice(sliceIndex);
+    if (slice && slice.maskRows) {
+      const D = this.cfdData();
+      const nx = Math.max(1, Math.floor(D.NX || 96));
+      const ny = Math.max(1, Math.floor(D.NY || 40));
+      const gx = Math.max(0, Math.min(nx - 1, Math.floor(((x - D.X0) / Math.max(0.0001, D.X1 - D.X0)) * nx)));
+      const gy = Math.max(0, Math.min(ny - 1, Math.floor(((D.Y1 - y) / Math.max(0.0001, D.Y1 - D.Y0)) * ny)));
+      const row = slice.maskRows[gy];
+      return row && row.charAt(gx) === "1";
+    }
+
+    const obstacle = this.cfdData().obstacle;
+    const shapes = obstacle ? obstacle.shapes : null;
+    if (!shapes) return false;
+    for (let i = 0; i < shapes.length; i++) {
+      const shape = shapes[i];
+      if (!shape) continue;
+      if (shape.type === "rect") {
+        const x0 = Math.min(shape.x0, shape.x1);
+        const x1 = Math.max(shape.x0, shape.x1);
+        const y0 = Math.min(shape.y0, shape.y1);
+        const y1 = Math.max(shape.y0, shape.y1);
+        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) return true;
+      } else if (shape.type === "ellipse") {
+        const rx = Math.max(0.0001, Math.abs(shape.rx));
+        const ry = Math.max(0.0001, Math.abs(shape.ry));
+        const qx = (x - shape.cx) / rx;
+        const qy = (y - shape.cy) / ry;
+        if (qx * qx + qy * qy <= 1.0) return true;
+      }
+    }
+    return false;
+  }
+
+  private obstacleSlice(sliceIndex: number): any {
+    const obstacle = this.cfdData().obstacle;
+    if (!obstacle || !obstacle.slices || obstacle.slices.length === 0) return null;
+    const k = Math.max(0, Math.min(obstacle.slices.length - 1, Math.floor(sliceIndex)));
+    return obstacle.slices[k];
+  }
+
+  private planeToDataX(x: number): number {
+    const D = this.cfdData();
+    return D.X0 + ((x / Math.max(0.0001, this.planeWidth)) + 0.5) * (D.X1 - D.X0);
+  }
+
+  private planeToDataY(y: number): number {
+    const D = this.cfdData();
+    return D.Y0 + ((y / Math.max(0.0001, this.planeHeight)) + 0.5) * (D.Y1 - D.Y0);
+  }
+
+  private dataToPlaneX(x: number): number {
+    const D = this.cfdData();
+    return ((x - D.X0) / Math.max(0.0001, D.X1 - D.X0)) * this.planeWidth - this.planeWidth * 0.5;
+  }
+
+  private dataToPlaneY(y: number): number {
+    const D = this.cfdData();
+    return ((y - D.Y0) / Math.max(0.0001, D.Y1 - D.Y0)) * this.planeHeight - this.planeHeight * 0.5;
+  }
+
+  private currentFrameIndex(): number {
+    return this.frameIndexForTime(getTime());
+  }
+
+  private frameIndexForTime(time: number): number {
+    const D = this.cfdData();
+    const nt = Math.max(1, Math.floor(D.NT || (D.frames ? D.frames.length : 1)));
+    if (nt <= 1) return 0;
+    const fps = Math.max(0.001, D.fps || (D.secondsPerFrame ? 1.0 / D.secondsPerFrame : 8.0));
+    return Math.floor(Math.max(0.0, time) * fps) % nt;
+  }
+
+  private slicePaths(k: number, frame: number): any[] {
+    const D = this.cfdData();
+    const sliceIndex = Math.max(0, Math.min(Math.max(1, D.NZ) - 1, k));
+    if (D.frames && D.frames.length > 0) {
+      const frameIndex = Math.max(0, Math.min(D.frames.length - 1, frame));
+      const frameSlices = D.frames[frameIndex];
+      if (frameSlices && frameSlices[sliceIndex]) return frameSlices[sliceIndex];
+    }
+    if (D.slices && D.slices[sliceIndex]) return D.slices[sliceIndex];
+    return [];
   }
 
   private sampleSliceVector(k: number, x: number, y: number, time: number, animated: boolean): { x: number, z: number, speed: number, intensity: number } {
-    const D = FLOW_PATHS;
+    return this.sampleSliceVectorAtFrame(k, this.frameIndexForTime(time), x, y, time, animated);
+  }
+
+  private sampleSliceVectorAtFrame(k: number, frame: number, x: number, y: number, time: number, animated: boolean): { x: number, z: number, speed: number, intensity: number } {
+    const D = this.cfdData();
     const X0 = D.X0, X1 = D.X1, Y0 = D.Y0, Y1 = D.Y1;
     const mapX = (vx: number) => ((vx - X0) / (X1 - X0)) * this.planeWidth - this.planeWidth * 0.5;
     const mapY = (vy: number) => ((vy - Y0) / (Y1 - Y0)) * this.planeHeight - this.planeHeight * 0.5;
-    const slice = D.slices[Math.max(0, Math.min(D.NZ - 1, k))];
+    const slice = this.slicePaths(k, frame);
     let bestDist = 999999.0;
     let bestDx = 1.0;
     let bestDy = 0.0;
@@ -523,6 +908,34 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       bx + px * halfWidth, by + py * halfWidth, z, nx, ny, nz, 1.0, phase, color.x, color.y, color.z, color.w,
     ]);
     mb.appendIndices([start, start + 1, start + 2, start + 1, start + 3, start + 2]);
+  }
+
+  private appendXYSegmentQuad(mb: MeshBuilder, x0: number, y0: number, x1: number, y1: number, width: number, z: number, color: vec4): void {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const len = Math.hypot(dx, dy);
+    if (len < 0.0001) return;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const hw = width * 0.5;
+    const start = mb.getVerticesCount();
+    mb.appendVerticesInterleaved([
+      x0 - nx * hw, y0 - ny * hw, z, 0.0, 0.0, 1.0, 0.0, 0.0, color.x, color.y, color.z, color.w,
+      x0 + nx * hw, y0 + ny * hw, z, 0.0, 0.0, 1.0, 0.0, 0.0, color.x, color.y, color.z, color.w,
+      x1 - nx * hw, y1 - ny * hw, z, 0.0, 0.0, 1.0, 1.0, 0.0, color.x, color.y, color.z, color.w,
+      x1 + nx * hw, y1 + ny * hw, z, 0.0, 0.0, 1.0, 1.0, 0.0, color.x, color.y, color.z, color.w,
+    ]);
+    mb.appendIndices([start, start + 1, start + 2, start + 1, start + 3, start + 2]);
+  }
+
+  private sanitizeColor(color: vec4): vec4 {
+    if (!color) return new vec4(0.0, 1.0, 1.0, 0.95);
+    return new vec4(
+      this.clamp(color.x, 0.0, 1.0),
+      this.clamp(color.y, 0.0, 1.0),
+      this.clamp(color.z, 0.0, 1.0),
+      this.clamp(color.w, 0.0, 1.0)
+    );
   }
 
   private colorForValue(value: number): vec4 {

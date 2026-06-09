@@ -32,6 +32,8 @@
     billboardMetricReadouts: false
     cameraRoot: false
     curlStrength: false
+    fingerDriveHeightCm: false
+    fingerDriveObject: false
     flowAccumulation: false
     flowMemorySeconds: false
     flowSpeed: false
@@ -46,6 +48,7 @@
     tracerCount: false
     trailSamples: false
     trailWidth: false
+    useFingerDrive: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -56,6 +59,9 @@
     []
   DefaultScriptInputs:
     - interactionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      fingerDriveObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      useFingerDrive: true
+      fingerDriveHeightCm: !<float> 8.000000
       metricCursorObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       billboardMetricReadouts: true
@@ -80,6 +86,9 @@
       {}
   InputLines:
     - '// @input SceneObject interactionObject {"hint":"Optional draggable handle. Its local X/Z position creates a moving gust in the field."}'
+    - '// @input SceneObject fingerDriveObject {"hint":"Optional fingertip/cursor object. When close to the plane it directly drives motion generation."}'
+    - '// @input bool useFingerDrive = true {"hint":"Let a fingertip/cursor near the plane drive the motion generator without grabbing the handle."}'
+    - '// @input float fingerDriveHeightCm = 8 {"hint":"Max distance above/below the motion plane for finger-driven generation.", "widget":"slider", "min":1, "max":18, "step":0.5}'
     - '// @input SceneObject metricCursorObject {"hint":"Optional draggable metric cursor. Its local X/Z position samples divergence and curl."}'
     - '// @input SceneObject cameraRoot {"hint":"Camera used to billboard the DIV/CURL readout text. Empty searches for Camera Object."}'
     - '// @input bool billboardMetricReadouts = true {"hint":"Face the DIV/CURL readout text toward the camera every frame."}'
@@ -92,10 +101,10 @@
     - '// @input float gustStrength = 2.1 {"widget":"slider", "min":0, "max":3, "step":0.05}'
     - '// @input float gustRadius = 3.9 {"widget":"slider", "min":1, "max":8, "step":0.25}'
     - '// @input float curlStrength = 1.45 {"widget":"slider", "min":0, "max":3, "step":0.05}'
-    - '// @input float arrowColumns = 11 {"widget":"slider", "min":5, "max":27, "step":1}'
-    - '// @input float arrowRows = 7 {"widget":"slider", "min":3, "max":17, "step":1}'
+    - '// @input float arrowColumns = 9 {"widget":"slider", "min":5, "max":27, "step":1}'
+    - '// @input float arrowRows = 5 {"widget":"slider", "min":3, "max":17, "step":1}'
     - '// @input float trailWidth = 0.075 {"widget":"slider", "min":0.02, "max":0.18, "step":0.005}'
-    - '// @input float arrowLength = 0.95 {"widget":"slider", "min":0.25, "max":1.8, "step":0.025}'
+    - '// @input float arrowLength = 0.82 {"widget":"slider", "min":0.25, "max":1.8, "step":0.025}'
     - '// @input float metricSampleStep = 0.55 {"widget":"slider", "min":0.18, "max":1.2, "step":0.02}'
     - '// @input float flowMemorySeconds = 2 {"hint":"Field memory: seconds for stirred motion to ease back to rest after you stop. 0 = snap back instantly.", "widget":"slider", "min":0, "max":5, "step":0.1}'
     - '// @input float flowAccumulation = 1.65 {"hint":"How strongly continued stirring builds up momentum in the field (cumulative energy).", "widget":"slider", "min":0, "max":3, "step":0.05}'

@@ -232,6 +232,10 @@ export class StoryStepDirector extends BaseScriptComponent {
     @hint("Wind globe offset in calibrated plane-local space.")
     windReferenceOffset: vec3 = new vec3(0.0, 24.0, 0.0);
 
+    @input
+    @hint("Menu-relative Earth Winds globe staging. X = menu right, Y = above original menu anchor, Z = menu normal; negative Z tucks behind the menu.")
+    windGlobeMenuOffset: vec3 = new vec3(0.0, 10.0, -8.0);
+
     @input('float')
     @hint("Push the car-flow slice down (cm) so you look at it from above and the depth-drag handles are easy to reach.")
     carFlowDropDistance: number = 14.0;
@@ -402,6 +406,13 @@ export class StoryStepDirector extends BaseScriptComponent {
         }
     }
 
+    public hideAllVisuals(): void {
+        this.exampleFieldSelected = false;
+        this.theoryFieldSelected = false;
+        this.appliedKey = "";
+        this.parkContentRoots();
+    }
+
     public selectTheoryFieldMode(mode: number | string): void {
         this.selectedTheoryFieldMode = this.normalizeTheoryFieldMode(mode);
         this.theoryFieldSelected = true;
@@ -507,9 +518,22 @@ export class StoryStepDirector extends BaseScriptComponent {
     // by default so custom child controls remain targetable.
     private applyManipulationLock(roots: Array<SceneObject | null>): void {
         for (let i = 0; i < roots.length; i++) {
-            this.setRootInteractionEnabled(roots[i], this.exampleManipulationEnabled);
-            this.setChildManipulationEnabled(roots[i], !this.exampleManipulationEnabled);
+            const root = roots[i];
+            if (this.shouldUseRootDirectManipulation(root)) {
+                this.setRootInteractionEnabled(root, true);
+                this.setChildManipulationEnabled(root, false);
+                continue;
+            }
+            this.setRootInteractionEnabled(root, this.exampleManipulationEnabled);
+            this.setChildManipulationEnabled(root, !this.exampleManipulationEnabled);
         }
+    }
+
+    private shouldUseRootDirectManipulation(root: SceneObject | null): boolean {
+        if (!root || root.name !== "Vector Field Examples Root") return false;
+        if (this.currentStep.id !== "theory") return false;
+        const theoryMode = THEORY_FIELD_MODES[this.normalizeTheoryFieldMode(this.selectedTheoryFieldMode)];
+        return theoryMode.id !== "motion";
     }
 
     private setRootInteractionEnabled(root: SceneObject | null, enabled: boolean): void {
@@ -678,7 +702,7 @@ export class StoryStepDirector extends BaseScriptComponent {
             this.callLifecycle(magneticRoot, "refresh");
         }
         if (showWindGlobe) {
-            this.placeExampleRoot(windRoot, this.windFrontOffset, this.windReferenceOffset, "Proxy_Wind_Field_Example_Slot");
+            this.placeWindGlobeRoot(windRoot);
             this.callLifecycle(windRoot, "prepare");
             this.setEnabled(windRoot, true);
             this.applyTubeMode(windRoot, this.selectedWindTubeMode);
@@ -975,6 +999,42 @@ export class StoryStepDirector extends BaseScriptComponent {
             return;
         }
         this.placeFrontFacing(root, frontOffset, false);
+    }
+
+    private placeWindGlobeRoot(root: SceneObject | null): void {
+        if (!root) return;
+        this.restoreRootBaseScale(root);
+        if (this.useFrontPlacementForAllVisuals && this.placeWindGlobeAtMenu(root)) return;
+        this.placeExampleRoot(root, this.windFrontOffset, this.windReferenceOffset, "Proxy_Wind_Field_Example_Slot");
+    }
+
+    private placeWindGlobeAtMenu(root: SceneObject): boolean {
+        const menu = this.menuRoot || this.findObjectByName("Story Chapter Guide UI");
+        if (!menu) return false;
+
+        const menuTransform = menu.getTransform();
+        const menuRotation = menuTransform.getWorldRotation();
+        const menuScale = menuTransform.getLocalScale();
+        const offset = new vec3(
+            this.windGlobeMenuOffset.x * menuScale.x,
+            this.windGlobeMenuOffset.y * menuScale.y,
+            this.windGlobeMenuOffset.z * menuScale.z
+        );
+        const position = menuTransform.getWorldPosition().add(menuRotation.multiplyVec3(offset));
+
+        const camera = this.cameraRoot || this.findObjectByName("Camera Object") || this.findObjectByName("Camera");
+        const worldUp = new vec3(0.0, 1.0, 0.0);
+        let rotation = menuRotation;
+        if (camera) {
+            const toCamera = camera.getTransform().getWorldPosition().sub(position);
+            const faceDirection = this.safeHorizontalDirection(toCamera, new vec3(0.0, 0.0, 1.0));
+            rotation = faceDirection.length > 0.0001 ? quat.lookAt(faceDirection, worldUp) : menuRotation;
+        }
+
+        const transform = root.getTransform();
+        transform.setWorldPosition(position);
+        transform.setWorldRotation(rotation);
+        return true;
     }
 
     // The car-flow slice billboards to face the camera and lands at head height,

@@ -44,6 +44,20 @@ export class MotionFieldPlane extends BaseScriptComponent {
 
     @input
     @allowUndefined
+    @hint("Optional fingertip/cursor object. When close to the plane it directly drives motion generation.")
+    fingerDriveObject: SceneObject = null as any;
+
+    @input
+    @hint("Let a fingertip/cursor near the plane drive the motion generator without grabbing the handle.")
+    useFingerDrive: boolean = true;
+
+    @input('float')
+    @widget(new SliderWidget(1.0, 18.0, 0.5))
+    @hint("Max distance above/below the motion plane for finger-driven generation.")
+    fingerDriveHeightCm: number = 8.0;
+
+    @input
+    @allowUndefined
     @hint("Optional draggable metric cursor. Its local X/Z position samples divergence and curl.")
     metricCursorObject: SceneObject = null as any;
 
@@ -100,11 +114,11 @@ export class MotionFieldPlane extends BaseScriptComponent {
 
     @input
     @widget(new SliderWidget(5, 27, 1))
-    arrowColumns: number = 11;
+    arrowColumns: number = 9;
 
     @input
     @widget(new SliderWidget(3, 17, 1))
-    arrowRows: number = 7;
+    arrowRows: number = 5;
 
     @input
     @widget(new SliderWidget(0.02, 0.18, 0.005))
@@ -112,7 +126,7 @@ export class MotionFieldPlane extends BaseScriptComponent {
 
     @input
     @widget(new SliderWidget(0.25, 1.8, 0.025))
-    arrowLength: number = 0.95;
+    arrowLength: number = 0.82;
 
     @input
     @widget(new SliderWidget(0.18, 1.2, 0.02))
@@ -166,6 +180,7 @@ export class MotionFieldPlane extends BaseScriptComponent {
     private divergenceText: Text | null = null;
     private curlText: Text | null = null;
     private cachedCameraObject: SceneObject | null = null;
+    private cachedFingerDriveObject: SceneObject | null = null;
     private initialized: boolean = false;
     private dynamicMeshAccumulator: number = 0.0;
     private metricReadoutAccumulator: number = 0.0;
@@ -259,13 +274,13 @@ export class MotionFieldPlane extends BaseScriptComponent {
     }
 
     private ensureVisuals(): void {
-        this.backdropVisual = this.createVisual("__MotionFieldBackdrop", 26, new vec4(0.50, 0.50, 0.50, 0.88), DETAIL_MATERIAL);
-        this.gridVisual = this.createVisual("__MotionFieldGrid", 27, new vec4(0.92, 0.96, 1.0, 0.46));
-        this.arrowVisual = this.createVisual("__MotionFieldArrows", 30, new vec4(0.92, 0.96, 1.0, 0.62));
-        this.rippleVisual = this.createVisual("__MotionFieldHandleWake", 31, new vec4(1.0, 0.92, 0.88, 0.54));
-        this.metricStencilVisual = this.createVisual("__MotionFieldMetricStencil", 32, new vec4(0.96, 0.98, 1.0, 0.64));
-        this.metricReadoutPlateVisual = this.createVisual("__MotionFieldMetricReadoutPlate", 90, new vec4(1.0, 1.0, 1.0, 0.24));
-        this.metricCursorGizmoVisual = this.createVisual("__MotionFieldCursorGizmo", 34, new vec4(0.96, 0.98, 1.0, 0.92));
+        this.backdropVisual = this.createVisual("__MotionFieldBackdrop", 26, new vec4(0.02, 0.10, 0.18, 0.92), DETAIL_MATERIAL);
+        this.gridVisual = this.createVisual("__MotionFieldGrid", 27, new vec4(0.04, 0.88, 0.78, 0.62));
+        this.arrowVisual = this.createVisual("__MotionFieldArrows", 30, new vec4(0.16, 0.98, 1.0, 0.95));
+        this.rippleVisual = this.createVisual("__MotionFieldHandleWake", 31, new vec4(0.0, 0.0, 0.0, 0.0));
+        this.metricStencilVisual = this.createVisual("__MotionFieldMetricStencil", 32, new vec4(0.40, 1.0, 0.42, 0.88));
+        this.metricReadoutPlateVisual = this.createVisual("__MotionFieldMetricReadoutPlate", 90, new vec4(0.02, 0.20, 0.30, 0.58));
+        this.metricCursorGizmoVisual = this.createVisual("__MotionFieldCursorGizmo", 34, new vec4(0.18, 1.0, 0.64, 1.0));
         this.clearLegacyTrailMesh();
     }
 
@@ -309,6 +324,13 @@ export class MotionFieldPlane extends BaseScriptComponent {
         if (!this.interactionObject) {
             const handle = this.findChildByName("Motion Field Handle");
             if (handle) this.interactionObject = handle;
+        }
+        if (!this.fingerDriveObject && !this.cachedFingerDriveObject) {
+            this.cachedFingerDriveObject =
+                this.findSceneObjectByName("index-3_end_end_end_end") ||
+                this.findSceneObjectByName("indexTip") ||
+                this.findSceneObjectByName("RightIndexTip") ||
+                this.findSceneObjectByName("LeftIndexTip");
         }
         if (!this.metricCursorObject) {
             const cursor = this.findChildByName("Motion Field Metric Cursor");
@@ -410,7 +432,12 @@ export class MotionFieldPlane extends BaseScriptComponent {
     private updateHandle(dt: number): void {
         this.prevHandleX = this.handleX;
         this.prevHandleZ = this.handleZ;
-        if (this.interactionObject) {
+        const fingerLocal = this.fingerDrivenLocalPosition();
+        if (fingerLocal) {
+            this.handleX = this.clamp(fingerLocal.x, -this.planeWidth * 0.5, this.planeWidth * 0.5);
+            this.handleZ = this.clamp(fingerLocal.z, -this.planeDepth * 0.5, this.planeDepth * 0.5);
+            this.pinInteractionObjectToPlane();
+        } else if (this.interactionObject) {
             const inv = this.sceneObject.getTransform().getInvertedWorldTransform();
             const local = inv.multiplyPoint(this.interactionObject.getTransform().getWorldPosition());
             this.handleX = this.clamp(local.x, -this.planeWidth * 0.5, this.planeWidth * 0.5);
@@ -455,6 +482,21 @@ export class MotionFieldPlane extends BaseScriptComponent {
             1.0
         );
         this.driveEnergy += (targetEnergy - this.driveEnergy) * follow;
+    }
+
+    private fingerDrivenLocalPosition(): vec3 | null {
+        if (!this.useFingerDrive || this.preset !== "motion") return null;
+        const driver = this.fingerDriveObject || this.cachedFingerDriveObject;
+        if (!driver || !driver.enabled) return null;
+
+        const inv = this.sceneObject.getTransform().getInvertedWorldTransform();
+        const local = inv.multiplyPoint(driver.getTransform().getWorldPosition());
+        const halfW = this.planeWidth * 0.5;
+        const halfD = this.planeDepth * 0.5;
+        const height = Math.abs(local.y);
+        if (height > Math.max(0.1, this.fingerDriveHeightCm)) return null;
+        if (local.x < -halfW - 2.0 || local.x > halfW + 2.0 || local.z < -halfD - 2.0 || local.z > halfD + 2.0) return null;
+        return local;
     }
 
     private pinInteractionObjectToPlane(): void {
@@ -545,22 +587,22 @@ export class MotionFieldPlane extends BaseScriptComponent {
     }
 
     private sampleMotionField(x: number, z: number, time: number): FieldSample {
-        let vx = this.flowSpeed;
-        let vz = Math.sin(z * 0.55 + time * 0.9) * 0.22 + Math.sin(x * 0.27 + time * 0.42) * 0.12;
+        let vx = this.flowSpeed * 0.55;
+        let vz = Math.sin(z * 0.55 + time * 0.9) * 0.32 + Math.sin(x * 0.27 + time * 0.42) * 0.18;
         if (this.handleActive) {
             const dx = x - this.handleX;
             const dz = z - this.handleZ;
-            const radius = Math.max(0.001, this.gustRadius * (1.0 + this.handleSpeedScalar * 0.08));
+            const radius = Math.max(0.001, this.gustRadius * (1.12 + this.handleSpeedScalar * 0.10));
             const d2 = dx * dx + dz * dz;
-            const falloff = Math.exp(-d2 / (radius * radius * 1.25));
+            const falloff = Math.exp(-d2 / (radius * radius * 1.85));
             const len = Math.max(0.001, Math.sqrt(d2));
-            const deformation = 1.25 + this.handleSpeedScalar * 0.32;
+            const deformation = 1.85 + this.handleSpeedScalar * 0.42;
             const dragX = this.driveX * deformation;
             const dragZ = this.driveZ * deformation;
-            vx += dragX * this.gustStrength * falloff;
-            vz += dragZ * this.gustStrength * falloff;
-            const swirlSign = this.driveZ >= 0.0 ? 1.0 : -1.0;
-            const swirl = this.curlStrength * falloff * (0.75 + this.driveEnergy * 1.05 + this.handleSpeedScalar * 0.25) * swirlSign;
+            vx += dragX * this.gustStrength * falloff * 1.35;
+            vz += dragZ * this.gustStrength * falloff * 1.35;
+            const swirlSign = (this.driveX * dz - this.driveZ * dx) >= 0.0 ? 1.0 : -1.0;
+            const swirl = this.curlStrength * falloff * (0.95 + this.driveEnergy * 1.20 + this.handleSpeedScalar * 0.32) * swirlSign;
             vx += (-dz / len) * swirl;
             vz += (dx / len) * swirl;
         }
@@ -651,8 +693,8 @@ export class MotionFieldPlane extends BaseScriptComponent {
                 const x = -hw + this.planeWidth * ((ix + 0.5) / cols);
                 const f = this.sampleField(x, z, t);
                 const velocityStretch = this.handleActive ? this.handleSpeedScalar : 0.0;
-                const len = this.arrowLength * this.clamp(1.05 + f.speed * 0.20 + velocityStretch * 0.72, 1.05, 3.25);
-                const width = 0.12 * this.clamp(1.0 + velocityStretch * 0.16, 1.0, 1.32);
+                const len = this.arrowLength * this.clamp(1.08 + f.speed * 0.18 + velocityStretch * 0.52, 0.95, 2.25);
+                const width = 0.15 * this.clamp(1.0 + velocityStretch * 0.18, 1.0, 1.32);
                 this.addArrow(mb, x, z, f.x, f.z, len, width, 0.055);
             }
         }
@@ -672,23 +714,6 @@ export class MotionFieldPlane extends BaseScriptComponent {
     private buildRippleMesh(): void {
         if (!this.rippleVisual) return;
         const mb = this.makeBuilder();
-        if (!this.handleActive) {
-            this.rippleVisual.mesh = mb.getMesh();
-            mb.updateMesh();
-            return;
-        }
-        const pulse = 0.5 + 0.5 * Math.sin(getTime() * 5.2);
-        const radius = Math.max(0.45, this.gustRadius * (0.42 + pulse * 0.12));
-        const segments = 36;
-        for (let i = 0; i < segments; i++) {
-            const a0 = (i / segments) * Math.PI * 2.0;
-            const a1 = ((i + 1) / segments) * Math.PI * 2.0;
-            const x0 = this.handleX + Math.cos(a0) * radius;
-            const z0 = this.handleZ + Math.sin(a0) * radius;
-            const x1 = this.handleX + Math.cos(a1) * radius;
-            const z1 = this.handleZ + Math.sin(a1) * radius;
-            this.addLine(mb, x0, z0, x1, z1, 0.045, 0.085);
-        }
         this.rippleVisual.mesh = mb.getMesh();
         mb.updateMesh();
     }
@@ -728,33 +753,33 @@ export class MotionFieldPlane extends BaseScriptComponent {
     private buildMetricReadoutPlateMesh(): void {
         if (!this.metricReadoutPlateVisual) return;
         const mb = this.makeBuilder();
-        const z = -this.planeDepth * 0.66;
-        const leftX = -this.planeWidth * 0.34;
-        const rightX = this.planeWidth * 0.30;
-        this.addSolidBox(mb, leftX, z, 6.30, 1.08, 0.30);
-        this.addSolidBox(mb, rightX, z, 6.30, 1.08, 0.30);
-        this.addBoxFrame(mb, leftX, z, 6.30, 1.08, 0.035, 0.36);
-        this.addBoxFrame(mb, rightX, z, 6.30, 1.08, 0.035, 0.36);
+        const z = this.planeDepth * 0.62;
+        const divX = this.planeWidth * 0.22;
+        const curlX = this.planeWidth * 0.42;
+        this.addSolidBox(mb, divX, z, 4.25, 0.86, 0.30);
+        this.addSolidBox(mb, curlX, z, 4.25, 0.86, 0.30);
+        this.addBoxFrame(mb, divX, z, 4.25, 0.86, 0.035, 0.36);
+        this.addBoxFrame(mb, curlX, z, 4.25, 0.86, 0.035, 0.36);
         this.metricReadoutPlateVisual.mesh = mb.getMesh();
         mb.updateMesh();
     }
 
     private updateMetricReadouts(): void {
         const metrics = this.measureAt(this.metricX, this.metricZ);
-        const metricZ = -this.planeDepth * 0.66;
+        const metricZ = this.planeDepth * 0.62;
         this.divergenceText = this.configureText(
             "__MotionFieldDivergenceReadout",
             "DIV  " + this.formatSigned(metrics.divergence),
-            new vec3(-this.planeWidth * 0.34, 0.70, metricZ),
+            new vec3(this.planeWidth * 0.22, 0.70, metricZ),
             METRIC_READOUT_SIZE,
-            new vec4(1.0, 1.0, 1.0, 1.0)
+            new vec4(0.42, 1.0, 0.78, 1.0)
         );
         this.curlText = this.configureText(
             "__MotionFieldCurlReadout",
             "CURL  " + this.formatSigned(metrics.curl),
-            new vec3(this.planeWidth * 0.30, 0.70, metricZ),
+            new vec3(this.planeWidth * 0.42, 0.70, metricZ),
             METRIC_READOUT_SIZE,
-            new vec4(1.0, 1.0, 1.0, 1.0)
+            new vec4(0.18, 0.90, 1.0, 1.0)
         );
     }
 

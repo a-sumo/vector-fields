@@ -499,19 +499,11 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     @input
     @hint("Extra menu drop while Earth Winds is open, so the hand-distance globe can sit above the controls.")
-    weatherMenuDropCm: number = -15.0;
+    weatherMenuDropCm: number = -28.0;
 
     @input
     @hint("Extra menu lift while analytical field patterns are open, leaving space below the menu for the manipulable field.")
     analyticalMenuLiftCm: number = 26.0;
-
-    @input
-    @hint("Extra vertical lift for the Earth Winds globe while its detail view is open.")
-    weatherGlobeLiftCm: number = 32.0;
-
-    @input
-    @hint("Forward separation from the menu plane for the Earth Winds globe while its detail view is open.")
-    weatherGlobeForwardCm: number = 10.0;
 
     @input
     @hint("Higher values make the Earth Winds layout offset blend in/out faster.")
@@ -618,8 +610,6 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private weatherLayoutBlend: number = 0.0;
     private analyticalLayoutBlend: number = 0.0;
     private menuWeatherBaseLocalPosition: vec3 | null = null;
-    private windGlobeBaseLocalPosition: vec3 | null = null;
-    private windGlobeBaseWorldPosition: vec3 | null = null;
 
     onAwake(): void {
         this.startEventRef = this.createEvent("OnStartEvent");
@@ -631,7 +621,6 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             this.updateWeatherLayoutBlend();
             this.updateAnalyticalLayoutBlend();
             this.updateMenuPose();
-            this.updateWeatherGlobePose();
             this.updateMainExperiencePriority();
             this.updateTheoryPatternUiSettle();
             this.hideRegisteredUIKitVisuals();
@@ -1638,6 +1627,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             image.mainMaterial = material;
             image.renderOrder = renderOrder;
             (image as any).twoSided = true;
+            this.configureImageBlending(image);
             this.configureTransparentDepthPass(this.tryMainPass(material));
             this.configureTransparentDepthPass(this.tryMainPass(image));
         } catch (e) {}
@@ -2353,9 +2343,16 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         const worldPoint = this.cursorWorldPointFromEvent(event);
         if (!worldPoint) return;
 
-        const delta = worldPoint.sub(this.menuDragStartCursorWorld);
+        const delta = this.projectMenuDragDelta(worldPoint.sub(this.menuDragStartCursorWorld));
         this.sceneObject.getTransform().setWorldPosition(this.menuDragStartMenuWorld.add(delta));
         this.dockProxyPlaneSoftly();
+    }
+
+    private projectMenuDragDelta(delta: vec3): vec3 {
+        const rotation = this.sceneObject.getTransform().getWorldRotation();
+        const right = rotation.multiplyVec3(new vec3(1.0, 0.0, 0.0));
+        const up = rotation.multiplyVec3(new vec3(0.0, 1.0, 0.0));
+        return right.uniformScale(delta.dot(right)).add(up.uniformScale(delta.dot(up)));
     }
 
     private endMenuDrag(): void {
@@ -2427,6 +2424,9 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     }
 
     private proxyCanActivate(api: any): boolean {
+        if (this.theoryMenuOpen && this.selectedTheoryCard === "patterns" && this.selectedTheoryMode !== "motion") {
+            return false;
+        }
         if (!api) return false;
         try {
             if (typeof api.canActivate === "function") return api.canActivate();
@@ -2687,6 +2687,16 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
     }
 
+    private configureImageBlending(image: Image): void {
+        if (!image) return;
+        try { (image as any).blendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+        try { (image as any).BlendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+        try { (image as any).depthWrite = false; } catch (e) {}
+        try { (image as any).DepthWrite = false; } catch (e) {}
+        try { (image as any).twoSided = true; } catch (e) {}
+        try { (image as any).TwoSided = true; } catch (e) {}
+    }
+
     private applyTexture(material: Material, texture: Texture, image?: Image): void {
         if (!material || !texture) return;
         const pass = this.tryMainPass(material);
@@ -2697,6 +2707,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
         const imagePass = image ? this.tryMainPass(image) : null;
         if (imagePass) {
+            this.configureImageBlending(image);
             this.configureTransparentDepthPass(imagePass);
             try { imagePass.baseTex = texture; } catch (e) {}
             try { imagePass.baseColor = new vec4(1.0, 1.0, 1.0, 1.0); } catch (e) {}
@@ -2983,21 +2994,6 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         return new vec3(0.0, this.weatherMenuDropCm * this.weatherLayoutBlend + analyticalLift, 0.0);
     }
 
-    private weatherGlobeOffset(): vec3 {
-        return new vec3(0.0, this.weatherGlobeLiftCm * this.weatherLayoutBlend, 0.0);
-    }
-
-    private weatherGlobeCenteredWorldPosition(): vec3 {
-        const menuTransform = this.sceneObject.getTransform();
-        const menuPosition = menuTransform.getWorldPosition();
-        const menuRotation = menuTransform.getWorldRotation();
-        const up = this.safeDirection(menuRotation.multiplyVec3(new vec3(0.0, 1.0, 0.0)), new vec3(0.0, 1.0, 0.0));
-        const forward = this.safeDirection(menuRotation.multiplyVec3(new vec3(0.0, 0.0, 1.0)), new vec3(0.0, 0.0, 1.0));
-        return menuPosition
-            .add(up.uniformScale(this.weatherGlobeLiftCm))
-            .add(forward.uniformScale(this.weatherGlobeForwardCm));
-    }
-
     private updateFixedMenuWeatherPose(): void {
         const transform = this.sceneObject.getTransform();
         const current = transform.getLocalPosition();
@@ -3018,32 +3014,6 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
 
         transform.setLocalPosition(this.menuWeatherBaseLocalPosition.add(offset));
-    }
-
-    private updateWeatherGlobePose(): void {
-        const globe = this.findObjectByName("Globe Calibration");
-        if (!globe) return;
-
-        const transform = globe.getTransform();
-        const current = transform.getLocalPosition();
-
-        if (!this.windGlobeBaseLocalPosition) {
-            this.windGlobeBaseLocalPosition = current;
-        }
-        if (!this.windGlobeBaseWorldPosition) {
-            this.windGlobeBaseWorldPosition = transform.getWorldPosition();
-        }
-
-        if (!this.earthWindsPresentationActive() && this.weatherLayoutBlend <= 0.001) {
-            this.windGlobeBaseLocalPosition = current;
-            this.windGlobeBaseWorldPosition = transform.getWorldPosition();
-            return;
-        }
-
-        const base = this.windGlobeBaseWorldPosition;
-        const target = this.weatherGlobeCenteredWorldPosition();
-        const blend = this.clamp(this.weatherLayoutBlend, 0.0, 1.0);
-        transform.setWorldPosition(this.mixVec3(base, target, blend));
     }
 
     private findScriptApi(root: SceneObject | null, methodName: string): any {
@@ -4069,8 +4039,10 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
                     this.restoreCollidersInTree(root, !rootMoveEnabled);
                     if (rootName === "Vector Field Examples Root" && this.theoryMenuOpen && this.selectedTheoryCard === "patterns" && this.selectedTheoryMode !== "motion") {
                         this.disableVectorFieldBoundsColliders(root);
+                        this.setOwnCollidersEnabled(root, true);
+                        this.setOwnInteractableScriptsEnabled(root, true);
                     }
-                    if (!rootMoveEnabled) {
+                    if (!rootMoveEnabled && !(rootName === "Vector Field Examples Root" && this.theoryMenuOpen && this.selectedTheoryCard === "patterns" && this.selectedTheoryMode !== "motion")) {
                         this.setOwnCollidersEnabled(root, false);
                     }
                 }
@@ -4146,6 +4118,22 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         for (let i = 0; i < colliders.length; i++) {
             const collider = colliders[i] as ColliderComponent;
             if (collider) collider.enabled = enabled;
+        }
+    }
+
+    private setOwnInteractableScriptsEnabled(root: SceneObject, enabled: boolean): void {
+        const scripts = root.getComponents("Component.ScriptComponent");
+        for (let i = 0; i < scripts.length; i++) {
+            const script = scripts[i] as any;
+            if (!script) continue;
+            try {
+                if (script.name === "Interactable" ||
+                    script.name === "InteractableManipulation" ||
+                    script.enableTranslation !== undefined ||
+                    script._enableXTranslation !== undefined) {
+                    script.enabled = enabled;
+                }
+            } catch (e) {}
         }
     }
 
@@ -4387,6 +4375,37 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
     }
 
+    private clearDirectorExampleSelection(): void {
+        if (this.directorApi && typeof this.directorApi.clearExampleSelection === "function") {
+            this.directorApi.clearExampleSelection();
+        }
+    }
+
+    private hideAllStagedVisualsForBack(): void {
+        this.setProxyPlaneActive(false);
+        if (this.directorApi && typeof this.directorApi.hideAllVisuals === "function") {
+            this.directorApi.hideAllVisuals();
+        } else {
+            this.clearDirectorExampleSelection();
+            this.clearDirectorTheorySelection();
+        }
+        this.hideFallbackVisualRoots();
+    }
+
+    private hideFallbackVisualRoots(): void {
+        if (!this.controlContentRoots) return;
+        this.setObjectEnabledByName("Motion Field Root", false);
+        this.setObjectEnabledByName("Vector Field Examples Root", false);
+        this.setVectorFieldTargetEnabled(false);
+        this.setObjectEnabledByName("Magnetic Field Root", false);
+        this.setObjectEnabledByName("Gravity Field Root", false);
+        this.setObjectEnabledByName("Artemis Trajectory Path", false);
+        this.setObjectEnabledByName("Mission Info", false);
+        this.setObjectEnabledByName("MissionInfoPanel", false);
+        this.setObjectEnabledByName("Globe Calibration", false);
+        this.setObjectEnabledByName("Car Fluid Flow", false);
+    }
+
     private selectTheoryFieldMode(id: TheoryFieldModeId): void {
         this.selectedTheoryMode = id;
         if (GUIDE_STEPS[this.currentIndex].id !== "theory") {
@@ -4425,6 +4444,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     private returnToChapterList(): void {
         if (this.theoryMenuOpen && this.selectedTheoryCard !== "") {
+            this.hideAllStagedVisualsForBack();
             this.selectedTheoryCard = "";
             this.metricsPage = 0;
             this.definitionPage = 0;
@@ -4432,11 +4452,13 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             return;
         }
         if (this.examplesMenuOpen && this.examplesDetailOpen) {
+            this.hideAllStagedVisualsForBack();
             this.examplesDetailOpen = false;
             this.magneticAdvancedOpen = false;
             this.syncVisualState();
             return;
         }
+        this.hideAllStagedVisualsForBack();
         this.showChapterList();
     }
 

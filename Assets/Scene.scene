@@ -1954,7 +1954,6 @@
     maxVisualDockScaleMultiplier: true
     dockSmoothing: true
     dockTweenSeconds: true
-    autoActivateOnVisualSelected: true
     autoActivateReadyFrames: true
     activationBlinkSeconds: true
     driveScale: true
@@ -1979,9 +1978,9 @@
       dockSmoothing: !<float> 12.000000
       dockTweenSeconds: 0.380000
       hideWhenNoActiveVisual: false
-      autoActivateOnVisualSelected: true
+      autoActivateOnVisualSelected: false
       autoActivateReadyFrames: !<float> 3.000000
-      activationBlinkSeconds: !<float> 2.500000
+      activationBlinkSeconds: 2.500000
       driveScale: true
       driveRotation: true
   ScriptTypes:
@@ -2459,7 +2458,7 @@
   Enabled: true
   Layers: 1
   LocalTransform: !<TransformEntity>
-    Position: {x: 0.000000, y: 0.000000, z: -52.000000}
+    Position: {x: 0.000000, y: 0.000000, z: -72.000000}
     Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
     Scale: {x: 1.550000, y: 1.550000, z: 1.550000}
     HasSegmentScaleCompensation: false
@@ -3328,7 +3327,7 @@
   RotationTension: 30.000000
   ForceCompound: false
   Intangible: false
-  ShowCollider: true
+  ShowCollider: false
 - !<RenderMeshVisual/5fa37268-1896-49a0-b157-2ecff0a9c18d>
   PrefabRemaps:
     []
@@ -3849,6 +3848,9 @@
   Enabled: true
   ScriptAsset: !<reference> 737dc505-c444-4a1b-a564-f30afdd88009
   ScriptInputsDefault:
+    fingerDriveObject: true
+    useFingerDrive: true
+    fingerDriveHeightCm: true
     cameraRoot: true
     billboardMetricReadouts: true
     initialPreset: true
@@ -3864,8 +3866,11 @@
   ScriptInputs:
     "":
       interactionObject: !<reference.SceneObject> a54d7fff-59ae-4fcf-9ef1-b658965b9789
+      fingerDriveObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      useFingerDrive: true
+      fingerDriveHeightCm: !<float> 8.000000
       metricCursorObject: !<reference.SceneObject> a8ec7196-82bb-4023-8dbc-852e49b9316a
-      cameraRoot: !<reference.SceneObject> 00000000-0000-0065-0000-000000000064
+      cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       billboardMetricReadouts: true
       initialPreset: !<float> 3.000000
       planeWidth: !<float> 48.000000
@@ -3879,7 +3884,7 @@
       arrowColumns: !<float> 11.000000
       arrowRows: !<float> 7.000000
       trailWidth: 0.075000
-      arrowLength: 0.950000
+      arrowLength: 0.820000
       metricSampleStep: 0.550000
       flowMemorySeconds: !<float> 2.000000
       flowAccumulation: 1.850000
@@ -4351,8 +4356,6 @@
     menuVisualScale: true
     weatherMenuDropCm: true
     analyticalMenuLiftCm: true
-    weatherGlobeLiftCm: true
-    weatherGlobeForwardCm: true
     weatherLayoutSmoothing: true
     menuHorizontalOffsetCm: true
     menuBillboardPitchBlend: true
@@ -4374,10 +4377,8 @@
       menuVisualScale: 1.550000
       menuVerticalOffsetCm: !<float> -15.000000
       menuLowerOffsetCm: !<float> -14.000000
-      weatherMenuDropCm: !<float> -15.000000
+      weatherMenuDropCm: !<float> -28.000000
       analyticalMenuLiftCm: !<float> 14.000000
-      weatherGlobeLiftCm: !<float> 10.000000
-      weatherGlobeForwardCm: !<float> 10.000000
       weatherLayoutSmoothing: !<float> 8.000000
       menuHorizontalOffsetCm: !<float> 0.000000
       menuBillboardPitchBlend: 0.350000
@@ -4998,6 +4999,7 @@
     gravityReferenceOffset: true
     magneticReferenceOffset: true
     windReferenceOffset: true
+    windGlobeMenuOffset: true
     carFlowDropDistance: true
     carFlowTiltDegrees: true
   ScriptTypesDefault:
@@ -5039,6 +5041,7 @@
       gravityReferenceOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: 0.000000}
       magneticReferenceOffset: !<Vec3> {x: 0.000000, y: 7.000000, z: 0.000000}
       windReferenceOffset: !<Vec3> {x: 0.000000, y: 24.000000, z: 0.000000}
+      windGlobeMenuOffset: !<Vec3> {x: 0.000000, y: 10.000000, z: -8.000000}
       carFlowDropDistance: !<float> 14.000000
       carFlowTiltDegrees: !<float> 16.000000
   ScriptTypes:
@@ -7014,6 +7017,7 @@
     _planeDepth: true
     _stepSize: true
     _preset: true
+    _colorMap: true
     _colorMapScale: true
     _colorMapOffset: true
   ScriptTypesDefault:

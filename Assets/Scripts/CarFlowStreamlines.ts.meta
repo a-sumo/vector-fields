@@ -33,15 +33,22 @@
     colorMap: false
     colorMapOffset: false
     colorMapScale: false
+    dataSet: false
     driveFromPosition: false
+    driveFromWorldPosition: false
     glyphColor: false
     glyphMaterial: false
+    maskGlyphsInsideObstacle: false
     material: false
+    obstacleMaskOutlineColor: false
+    obstacleMaskOutlineWidth: false
     phaseSpeed: false
     planeHeight: false
     planeWidth: false
     renderMode: false
     ribbonWidth: false
+    showObstacleMaskOutline: false
+    sliceControlObject: false
     speedScaleRef: false
     travel: false
     tubeColumns: false
@@ -63,6 +70,7 @@
     []
   DefaultScriptInputs:
     - material: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      dataSet: !<float> 1.000000
       glyphMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
       renderMode: !<float> 0.000000
       planeWidth: !<float> 24.000000
@@ -84,9 +92,15 @@
       colorMap: !<float> 17.000000
       colorMapScale: !<float> 1.000000
       colorMapOffset: !<float> 0.000000
+      showObstacleMaskOutline: true
+      maskGlyphsInsideObstacle: true
+      obstacleMaskOutlineWidth: 0.055000
+      obstacleMaskOutlineColor: !<Vec4> {x: 0.000000, y: 1.000000, z: 1.000000, w: 0.950000}
       autoScroll: true
       autoScrollSpeed: 0.200000
       driveFromPosition: false
+      sliceControlObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      driveFromWorldPosition: true
       axis: 2
       travel: !<float> 20.000000
   ScriptTypes:
@@ -94,6 +108,7 @@
       {}
   InputLines:
     - // @input Asset.Material material
+    - '// @input float dataSet = 1 {"hint":"Offline CFD dataset used by the slice renderer.", "widget":"combobox", "values":[{"label":"Airfoil CFD", "value":1}, {"label":"Car CFD", "value":0}]}'
     - '// @input Asset.Material glyphMaterial {"hint":"Separate material for fast car-flow ribbon glyphs. Use a CarFlowRibbonGlyph shader material here."}'
     - '// @input float renderMode {"widget":"combobox", "values":[{"label":"Ribbon Glyphs", "value":0}, {"label":"Streamline Ribbons", "value":1}, {"label":"Debug Tubes", "value":2}]}'
     - // @input float planeWidth = 24
@@ -115,8 +130,14 @@
     - '// @input float colorMap = 18 {"widget":"combobox", "values":[{"label":"jet", "value":13}, {"label":"viridis", "value":17}, {"label":"plasma", "value":18}]}'
     - // @input float colorMapScale = 1
     - // @input float colorMapOffset
+    - '// @input bool showObstacleMaskOutline = true {"hint":"Temporary CFD diagnostic overlay: draws the obstacle mask outline used by the baked solver."}'
+    - '// @input bool maskGlyphsInsideObstacle = true {"hint":"Suppresses glyphs whose centers fall inside the baked CFD obstacle silhouette."}'
+    - // @input float obstacleMaskOutlineWidth = 0.055
+    - '// @input vec4 obstacleMaskOutlineColor = {0,1,1,0.95} {"widget":"color"}'
     - // @input bool autoScroll
     - // @input float autoScrollSpeed = 0.2
     - // @input bool driveFromPosition = true
+    - "// @input SceneObject sliceControlObject {\"hint\":\"Optional object to read slice drag from. Leave empty to use this object's transform.\"}"
+    - '// @input bool driveFromWorldPosition = true {"hint":"Read drag in world space so Lens Studio/parent-object drags update the active slice."}'
     - // @input int axis = 2
     - // @input float travel = 3.635

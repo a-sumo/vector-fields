@@ -109,7 +109,7 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
 
     @input
     @hint("Automatically activate the proxy as soon as a transformable visual is selected.")
-    autoActivateOnVisualSelected: boolean = true;
+    autoActivateOnVisualSelected: boolean = false;
 
     @input
     @widget(new SliderWidget(1, 8, 1))
@@ -556,7 +556,11 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         this.directorApi = api;
         if (api && typeof api.getActiveVisualRoot === "function") {
             const root = api.getActiveVisualRoot() as SceneObject;
-            if (root && root.enabled) return root;
+            if (root && root.enabled) {
+                const key = api && typeof api.getActiveVisualKey === "function" ? api.getActiveVisualKey() : "";
+                if (key && key.indexOf("theory:Vector Field Examples Root") >= 0) return null;
+                return root;
+            }
             return null;
         }
         return this.findFallbackActiveRoot();

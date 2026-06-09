@@ -187,7 +187,12 @@
   Enabled: true
   ScriptAsset: !<reference> 737dc505-c444-4a1b-a564-f30afdd88009
   ScriptInputsDefault:
+    fingerDriveObject: true
+    useFingerDrive: true
+    fingerDriveHeightCm: true
     metricCursorObject: true
+    cameraRoot: true
+    billboardMetricReadouts: true
     initialPreset: true
     tracerCount: true
     flowSpeed: true
@@ -201,7 +206,12 @@
   ScriptInputs:
     "":
       interactionObject: !<reference.SceneObject> d1e89d15-cbf9-46d1-85fc-796bda5eaa77
+      fingerDriveObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      useFingerDrive: true
+      fingerDriveHeightCm: !<float> 8.000000
       metricCursorObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      billboardMetricReadouts: true
       initialPreset: !<float> 3.000000
       planeWidth: !<float> 48.000000
       planeDepth: !<float> 28.000000

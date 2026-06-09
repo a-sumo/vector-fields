@@ -26,9 +26,9 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
+    activationBlinkSeconds: false
     autoActivateOnVisualSelected: false
     autoActivateReadyFrames: false
-    activationBlinkSeconds: false
     cameraRoot: false
     directorRoot: false
     dockScale: false
@@ -74,7 +74,7 @@
       hideWhenNoActiveVisual: true
       autoActivateOnVisualSelected: true
       autoActivateReadyFrames: !<float> 3.000000
-      activationBlinkSeconds: !<float> 2.500000
+      activationBlinkSeconds: 2.500000
       driveScale: true
       driveRotation: true
   ScriptTypes:
@@ -97,7 +97,7 @@
     - '// @input float dockSmoothing = 12 {"hint":"How quickly the proxy plane lands back on the dock.", "widget":"slider", "min":1, "max":30, "step":0.5}'
     - '// @input float dockTweenSeconds = 0.38 {"hint":"Seconds used when toggling the proxy inactive and returning it to dock.", "widget":"slider", "min":0.12, "max":1.2, "step":0.02}'
     - '// @input bool hideWhenNoActiveVisual {"hint":"Hide the proxy plane when no transformable visual is active."}'
-    - '// @input bool autoActivateOnVisualSelected = true {"hint":"Automatically activate the proxy as soon as a transformable visual is selected."}'
+    - '// @input bool autoActivateOnVisualSelected {"hint":"Automatically activate the proxy as soon as a transformable visual is selected."}'
     - '// @input float autoActivateReadyFrames = 3 {"hint":"Frames that the selected visual must have stable measurable bounds before auto-activating the proxy.", "widget":"slider", "min":1, "max":8, "step":1}'
     - '// @input float activationBlinkSeconds = 2.5 {"hint":"Seconds that the proxy softly blinks after activation. Set to 0 to disable the activation blink.", "widget":"slider", "min":0, "max":6, "step":0.1}'
     - '// @input bool driveScale = true {"hint":"Apply proxy scale changes to the active visual root."}'
