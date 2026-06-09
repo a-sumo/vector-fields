@@ -1,0 +1,92 @@
+- !<AssetImportMetadata/b07977b3-4396-4100-a94c-97e36533bc99>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> b4363fc1-052e-4fd0-826c-c2631a6b55c8
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/b4363fc1-052e-4fd0-826c-c2631a6b55c8>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  ComponentUid: 97cd330e-e000-43a5-a0af-04611ab9e2a7
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    dotScrollSpeed: false
+    flowColor: false
+    flowSpeed: false
+    foilAngleDeg: false
+    foilCenterX: false
+    foilCenterY: false
+    foilChord01: false
+    foilColor: false
+    foilObject: false
+    invertFlowDirection: false
+    lineCount: false
+    lineSegments: false
+    lineWidth: false
+    liveEnabled: false
+    planeHeight: false
+    planeWidth: false
+    updateHz: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - liveEnabled: true
+      foilObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      planeWidth: !<float> 24.000000
+      planeHeight: 9.270000
+      updateHz: !<float> 15.000000
+      flowSpeed: 1.150000
+      invertFlowDirection: true
+      foilAngleDeg: !<float> 0.000000
+      foilCenterX: !<float> 0.000000
+      foilCenterY: !<float> 0.000000
+      foilChord01: 0.640000
+      lineCount: 9
+      lineSegments: 48
+      lineWidth: 0.055000
+      dotScrollSpeed: 1.600000
+      flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}
+      foilColor: !<Vec4> {x: 0.120000, y: 0.880000, z: 1.000000, w: 0.950000}
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @input bool liveEnabled = true {"hint":"Show the minimal live foil flow preview."}'
+    - '// @input SceneObject foilObject {"hint":"Optional transformable foil object. Its local XY position and local Z rotation drive the preview."}'
+    - '// @input float planeWidth = "24"'
+    - '// @input float planeHeight = "9.27"'
+    - '// @input float updateHz = "15" {"widget":"slider", "min":5, "max":30, "step":1}'
+    - '// @input float flowSpeed = "1.15" {"widget":"slider", "min":0.2, "max":3, "step":0.05}'
+    - '// @input bool invertFlowDirection = true {"hint":"Reverse the airflow direction without rotating the foil object."}'
+    - '// @input float foilAngleDeg = "0" {"widget":"slider", "min":-35, "max":35, "step":1}'
+    - '// @input float foilCenterX = "0" {"widget":"slider", "min":-8, "max":8, "step":0.1}'
+    - '// @input float foilCenterY = "0" {"widget":"slider", "min":-3, "max":3, "step":0.1}'
+    - '// @input float foilChord01 = "0.64" {"widget":"slider", "min":0.2, "max":0.9, "step":0.02}'
+    - '// @input int lineCount = "9" {"widget":"slider", "min":3, "max":14, "step":1}'
+    - '// @input int lineSegments = "48" {"widget":"slider", "min":18, "max":72, "step":1}'
+    - '// @input float lineWidth = "0.055" {"widget":"slider", "min":0.02, "max":0.14, "step":0.005}'
+    - '// @input float dotScrollSpeed = "1.6" {"hint":"Speed of dotted flow packets along the streamlines.", "widget":"slider", "min":0.2, "max":4, "step":0.1}'
+    - '// @input vec4 flowColor = {0.18,1,0.5,0.78} {"widget":"color"}'
+    - '// @input vec4 foilColor = {0.12,0.88,1,0.96} {"widget":"color"}'
