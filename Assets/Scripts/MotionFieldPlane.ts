@@ -25,6 +25,16 @@ type Tracer = {
     trailZ: number[];
 };
 
+type FingerShadow = {
+    x: number;
+    z: number;
+    height: number;
+    px: number;
+    pz: number;
+    vx: number;
+    vz: number;
+};
+
 const LINE_MATERIAL: Material = requireAsset("../Materials/FlatMaterial 2.mat") as Material;
 const DETAIL_MATERIAL: Material = requireAsset("../Materials/MotionFieldDetail.mat") as Material;
 const GUIDE_FONT: Font = requireAsset("../Fonts/Nunito_Sans/NunitoSans.ttf") as Font;
@@ -44,12 +54,37 @@ export class MotionFieldPlane extends BaseScriptComponent {
 
     @input
     @allowUndefined
-    @hint("Optional fingertip/cursor object. When close to the plane it directly drives motion generation.")
+    @hint("Legacy single fingertip/cursor object. It is projected onto the plane; only its temporal motion stirs the field.")
     fingerDriveObject: SceneObject = null as any;
 
     @input
-    @hint("Let a fingertip/cursor near the plane drive the motion generator without grabbing the handle.")
+    @hint("Project finger joints onto the plane as shadows. The shadows are visible; only their temporal motion stirs the field.")
     useFingerDrive: boolean = true;
+
+    @input
+    @allowUndefined
+    @hint("Optional thumb joint/object to project as a raycast shadow onto the plane.")
+    thumbProjectionObject: SceneObject = null as any;
+
+    @input
+    @allowUndefined
+    @hint("Optional index finger joint/object to project as a raycast shadow onto the plane.")
+    indexProjectionObject: SceneObject = null as any;
+
+    @input
+    @allowUndefined
+    @hint("Optional middle finger joint/object to project as a raycast shadow onto the plane.")
+    middleProjectionObject: SceneObject = null as any;
+
+    @input
+    @allowUndefined
+    @hint("Optional ring finger joint/object to project as a raycast shadow onto the plane.")
+    ringProjectionObject: SceneObject = null as any;
+
+    @input
+    @allowUndefined
+    @hint("Optional pinky finger joint/object to project as a raycast shadow onto the plane.")
+    pinkyProjectionObject: SceneObject = null as any;
 
     @input('float')
     @widget(new SliderWidget(1.0, 18.0, 0.5))
@@ -181,6 +216,9 @@ export class MotionFieldPlane extends BaseScriptComponent {
     private curlText: Text | null = null;
     private cachedCameraObject: SceneObject | null = null;
     private cachedFingerDriveObject: SceneObject | null = null;
+    private cachedFingerProjectionObjects: SceneObject[] = [];
+    private activeFingerShadows: FingerShadow[] = [];
+    private previousFingerShadowByName: Map<string, FingerShadow> = new Map<string, FingerShadow>();
     private initialized: boolean = false;
     private dynamicMeshAccumulator: number = 0.0;
     private metricReadoutAccumulator: number = 0.0;
@@ -277,7 +315,7 @@ export class MotionFieldPlane extends BaseScriptComponent {
         this.backdropVisual = this.createVisual("__MotionFieldBackdrop", 26, new vec4(0.02, 0.10, 0.18, 0.92), DETAIL_MATERIAL);
         this.gridVisual = this.createVisual("__MotionFieldGrid", 27, new vec4(0.04, 0.88, 0.78, 0.62));
         this.arrowVisual = this.createVisual("__MotionFieldArrows", 30, new vec4(0.16, 0.98, 1.0, 0.95));
-        this.rippleVisual = this.createVisual("__MotionFieldHandleWake", 31, new vec4(0.0, 0.0, 0.0, 0.0));
+        this.rippleVisual = this.createVisual("__MotionFieldFingerShadows", 31, new vec4(0.18, 1.0, 0.64, 0.72));
         this.metricStencilVisual = this.createVisual("__MotionFieldMetricStencil", 32, new vec4(0.40, 1.0, 0.42, 0.88));
         this.metricReadoutPlateVisual = this.createVisual("__MotionFieldMetricReadoutPlate", 90, new vec4(0.02, 0.20, 0.30, 0.58));
         this.metricCursorGizmoVisual = this.createVisual("__MotionFieldCursorGizmo", 34, new vec4(0.18, 1.0, 0.64, 1.0));
@@ -331,6 +369,9 @@ export class MotionFieldPlane extends BaseScriptComponent {
                 this.findSceneObjectByName("indexTip") ||
                 this.findSceneObjectByName("RightIndexTip") ||
                 this.findSceneObjectByName("LeftIndexTip");
+        }
+        if (this.cachedFingerProjectionObjects.length === 0) {
+            this.cachedFingerProjectionObjects = this.autoFingerProjectionObjects();
         }
         if (!this.metricCursorObject) {
             const cursor = this.findChildByName("Motion Field Metric Cursor");
@@ -432,11 +473,24 @@ export class MotionFieldPlane extends BaseScriptComponent {
     private updateHandle(dt: number): void {
         this.prevHandleX = this.handleX;
         this.prevHandleZ = this.handleZ;
-        const fingerLocal = this.fingerDrivenLocalPosition();
-        if (fingerLocal) {
-            this.handleX = this.clamp(fingerLocal.x, -this.planeWidth * 0.5, this.planeWidth * 0.5);
-            this.handleZ = this.clamp(fingerLocal.z, -this.planeDepth * 0.5, this.planeDepth * 0.5);
-            this.pinInteractionObjectToPlane();
+        this.activeFingerShadows = this.fingerProjectionShadows(dt);
+        if (this.activeFingerShadows.length > 0) {
+            let sx = 0.0;
+            let sz = 0.0;
+            let svx = 0.0;
+            let svz = 0.0;
+            for (let i = 0; i < this.activeFingerShadows.length; i++) {
+                const shadow = this.activeFingerShadows[i];
+                sx += shadow.x;
+                sz += shadow.z;
+                svx += shadow.vx;
+                svz += shadow.vz;
+            }
+            const invCount = 1.0 / this.activeFingerShadows.length;
+            this.handleX = this.clamp(sx * invCount, -this.planeWidth * 0.5, this.planeWidth * 0.5);
+            this.handleZ = this.clamp(sz * invCount, -this.planeDepth * 0.5, this.planeDepth * 0.5);
+            this.handleVX = svx * invCount;
+            this.handleVZ = svz * invCount;
         } else if (this.interactionObject) {
             const inv = this.sceneObject.getTransform().getInvertedWorldTransform();
             const local = inv.multiplyPoint(this.interactionObject.getTransform().getWorldPosition());
@@ -450,8 +504,10 @@ export class MotionFieldPlane extends BaseScriptComponent {
         }
         this.handleActive = this.preset === "motion";
         const invDt = 1.0 / Math.max(0.001, dt);
-        this.handleVX = (this.handleX - this.prevHandleX) * invDt;
-        this.handleVZ = (this.handleZ - this.prevHandleZ) * invDt;
+        if (this.activeFingerShadows.length === 0) {
+            this.handleVX = (this.handleX - this.prevHandleX) * invDt;
+            this.handleVZ = (this.handleZ - this.prevHandleZ) * invDt;
+        }
 
         const halfW = Math.max(0.001, this.planeWidth * 0.5);
         const halfD = Math.max(0.001, this.planeDepth * 0.5);
@@ -484,19 +540,76 @@ export class MotionFieldPlane extends BaseScriptComponent {
         this.driveEnergy += (targetEnergy - this.driveEnergy) * follow;
     }
 
-    private fingerDrivenLocalPosition(): vec3 | null {
-        if (!this.useFingerDrive || this.preset !== "motion") return null;
-        const driver = this.fingerDriveObject || this.cachedFingerDriveObject;
-        if (!driver || !driver.enabled) return null;
-
+    private fingerProjectionShadows(dt: number): FingerShadow[] {
+        if (!this.useFingerDrive || this.preset !== "motion") return [];
         const inv = this.sceneObject.getTransform().getInvertedWorldTransform();
-        const local = inv.multiplyPoint(driver.getTransform().getWorldPosition());
         const halfW = this.planeWidth * 0.5;
         const halfD = this.planeDepth * 0.5;
-        const height = Math.abs(local.y);
-        if (height > Math.max(0.1, this.fingerDriveHeightCm)) return null;
-        if (local.x < -halfW - 2.0 || local.x > halfW + 2.0 || local.z < -halfD - 2.0 || local.z > halfD + 2.0) return null;
-        return local;
+        const maxHeight = Math.max(0.1, this.fingerDriveHeightCm);
+        const drivers = this.fingerProjectionObjects();
+        const shadows: FingerShadow[] = [];
+        for (let i = 0; i < drivers.length; i++) {
+            const driver = drivers[i];
+            if (!driver || !driver.enabled) continue;
+            const local = inv.multiplyPoint(driver.getTransform().getWorldPosition());
+            const height = Math.abs(local.y);
+            if (height > maxHeight) continue;
+            if (local.x < -halfW - 2.0 || local.x > halfW + 2.0 || local.z < -halfD - 2.0 || local.z > halfD + 2.0) continue;
+            const key = driver.name + ":" + i;
+            const px = this.clamp(local.x, -halfW, halfW);
+            const pz = this.clamp(local.z, -halfD, halfD);
+            const previous = this.previousFingerShadowByName.get(key);
+            const invDt = 1.0 / Math.max(0.001, dt);
+            const shadow: FingerShadow = {
+                x: px,
+                z: pz,
+                height: height,
+                px: previous ? previous.x : px,
+                pz: previous ? previous.z : pz,
+                vx: previous ? (px - previous.x) * invDt : 0.0,
+                vz: previous ? (pz - previous.z) * invDt : 0.0,
+            };
+            this.previousFingerShadowByName.set(key, shadow);
+            shadows.push(shadow);
+        }
+        return shadows;
+    }
+
+    private fingerProjectionObjects(): SceneObject[] {
+        const out: SceneObject[] = [];
+        this.pushUniqueSceneObject(out, this.thumbProjectionObject);
+        this.pushUniqueSceneObject(out, this.indexProjectionObject);
+        this.pushUniqueSceneObject(out, this.middleProjectionObject);
+        this.pushUniqueSceneObject(out, this.ringProjectionObject);
+        this.pushUniqueSceneObject(out, this.pinkyProjectionObject);
+        this.pushUniqueSceneObject(out, this.fingerDriveObject || this.cachedFingerDriveObject);
+        for (let i = 0; i < this.cachedFingerProjectionObjects.length; i++) {
+            this.pushUniqueSceneObject(out, this.cachedFingerProjectionObjects[i]);
+        }
+        return out;
+    }
+
+    private pushUniqueSceneObject(out: SceneObject[], object: SceneObject | null): void {
+        if (!object) return;
+        for (let i = 0; i < out.length; i++) {
+            if (out[i] === object) return;
+        }
+        out.push(object);
+    }
+
+    private autoFingerProjectionObjects(): SceneObject[] {
+        const names = [
+            "thumbTip", "RightThumbTip", "LeftThumbTip", "thumb-3_end_end_end_end",
+            "indexTip", "RightIndexTip", "LeftIndexTip", "index-3_end_end_end_end",
+            "middleTip", "RightMiddleTip", "LeftMiddleTip", "middle-3_end_end_end_end",
+            "ringTip", "RightRingTip", "LeftRingTip", "ring-3_end_end_end_end",
+            "pinkyTip", "RightPinkyTip", "LeftPinkyTip", "pinky-3_end_end_end_end"
+        ];
+        const out: SceneObject[] = [];
+        for (let i = 0; i < names.length; i++) {
+            this.pushUniqueSceneObject(out, this.findSceneObjectByName(names[i]));
+        }
+        return out;
     }
 
     private pinInteractionObjectToPlane(): void {
@@ -590,21 +703,46 @@ export class MotionFieldPlane extends BaseScriptComponent {
         let vx = this.flowSpeed * 0.55;
         let vz = Math.sin(z * 0.55 + time * 0.9) * 0.32 + Math.sin(x * 0.27 + time * 0.42) * 0.18;
         if (this.handleActive) {
-            const dx = x - this.handleX;
-            const dz = z - this.handleZ;
-            const radius = Math.max(0.001, this.gustRadius * (1.12 + this.handleSpeedScalar * 0.10));
-            const d2 = dx * dx + dz * dz;
-            const falloff = Math.exp(-d2 / (radius * radius * 1.85));
-            const len = Math.max(0.001, Math.sqrt(d2));
-            const deformation = 1.85 + this.handleSpeedScalar * 0.42;
-            const dragX = this.driveX * deformation;
-            const dragZ = this.driveZ * deformation;
-            vx += dragX * this.gustStrength * falloff * 1.35;
-            vz += dragZ * this.gustStrength * falloff * 1.35;
-            const swirlSign = (this.driveX * dz - this.driveZ * dx) >= 0.0 ? 1.0 : -1.0;
-            const swirl = this.curlStrength * falloff * (0.95 + this.driveEnergy * 1.20 + this.handleSpeedScalar * 0.32) * swirlSign;
-            vx += (-dz / len) * swirl;
-            vz += (dx / len) * swirl;
+            if (this.activeFingerShadows.length > 0) {
+                for (let i = 0; i < this.activeFingerShadows.length; i++) {
+                    const shadow = this.activeFingerShadows[i];
+                    const fingerSpeed = Math.sqrt(shadow.vx * shadow.vx + shadow.vz * shadow.vz);
+                    if (fingerSpeed < 0.035) continue;
+                    const dx = x - shadow.x;
+                    const dz = z - shadow.z;
+                    const height01 = this.clamp(1.0 - shadow.height / Math.max(0.1, this.fingerDriveHeightCm), 0.0, 1.0);
+                    const motion01 = this.clamp(fingerSpeed * 0.030, 0.0, 1.0);
+                    const radius = Math.max(0.001, this.gustRadius * (0.46 + height01 * 0.22 + motion01 * 0.35));
+                    const d2 = dx * dx + dz * dz;
+                    const falloff = Math.exp(-d2 / (radius * radius * 1.65));
+                    const len = Math.max(0.001, Math.sqrt(d2));
+                    const dragX = this.clamp(shadow.vx * 0.12, -3.5, 3.5);
+                    const dragZ = this.clamp(shadow.vz * 0.12, -3.5, 3.5);
+                    const strength = this.gustStrength * motion01 * (0.45 + height01 * 0.55);
+                    vx += dragX * strength * falloff;
+                    vz += dragZ * strength * falloff;
+                    const swirlSign = (dragX * dz - dragZ * dx) >= 0.0 ? 1.0 : -1.0;
+                    const swirl = this.curlStrength * falloff * motion01 * (0.20 + height01 * 0.65) * swirlSign;
+                    vx += (-dz / len) * swirl;
+                    vz += (dx / len) * swirl;
+                }
+            } else {
+                const dx = x - this.handleX;
+                const dz = z - this.handleZ;
+                const radius = Math.max(0.001, this.gustRadius * (1.12 + this.handleSpeedScalar * 0.10));
+                const d2 = dx * dx + dz * dz;
+                const falloff = Math.exp(-d2 / (radius * radius * 1.85));
+                const len = Math.max(0.001, Math.sqrt(d2));
+                const deformation = 1.85 + this.handleSpeedScalar * 0.42;
+                const dragX = this.driveX * deformation;
+                const dragZ = this.driveZ * deformation;
+                vx += dragX * this.gustStrength * falloff * 1.35;
+                vz += dragZ * this.gustStrength * falloff * 1.35;
+                const swirlSign = (this.driveX * dz - this.driveZ * dx) >= 0.0 ? 1.0 : -1.0;
+                const swirl = this.curlStrength * falloff * (0.95 + this.driveEnergy * 1.20 + this.handleSpeedScalar * 0.32) * swirlSign;
+                vx += (-dz / len) * swirl;
+                vz += (dx / len) * swirl;
+            }
         }
         return { x: vx, z: vz, speed: Math.sqrt(vx * vx + vz * vz) };
     }
@@ -714,6 +852,19 @@ export class MotionFieldPlane extends BaseScriptComponent {
     private buildRippleMesh(): void {
         if (!this.rippleVisual) return;
         const mb = this.makeBuilder();
+        if (this.activeFingerShadows.length > 0) {
+            for (let i = 0; i < this.activeFingerShadows.length; i++) {
+                const shadow = this.activeFingerShadows[i];
+                const height01 = this.clamp(1.0 - shadow.height / Math.max(0.1, this.fingerDriveHeightCm), 0.0, 1.0);
+                const radius = 0.34 + height01 * 0.48;
+                this.addRing(mb, shadow.x, shadow.z, radius, 0.035, 0.118, 22);
+                this.addDiamondFrame(mb, shadow.x, shadow.z, radius * 0.62, 0.024, 0.126);
+                this.addLine(mb, shadow.px, shadow.pz, shadow.x, shadow.z, 0.018, 0.112);
+            }
+        } else if (this.handleActive) {
+            const pulse = 0.55 + 0.45 * Math.sin(getTime() * 5.0);
+            this.addRing(mb, this.handleX, this.handleZ, 0.52 + pulse * 0.16, 0.028, 0.112, 24);
+        }
         this.rippleVisual.mesh = mb.getMesh();
         mb.updateMesh();
     }

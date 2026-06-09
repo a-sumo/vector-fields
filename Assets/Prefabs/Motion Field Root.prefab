@@ -101,6 +101,11 @@
   ScriptInputsDefault:
     fingerDriveObject: true
     useFingerDrive: true
+    thumbProjectionObject: true
+    indexProjectionObject: true
+    middleProjectionObject: true
+    ringProjectionObject: true
+    pinkyProjectionObject: true
     fingerDriveHeightCm: true
     cameraRoot: true
     billboardMetricReadouts: true
@@ -119,6 +124,11 @@
       interactionObject: !<reference.SceneObject> a8a63c4a-78da-4f8d-b839-9a0477eeb910
       fingerDriveObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       useFingerDrive: true
+      thumbProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      indexProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      middleProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      ringProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      pinkyProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       fingerDriveHeightCm: !<float> 8.000000
       metricCursorObject: !<reference.SceneObject> b10ed3c8-2ddb-4005-b0ea-96392b6a4d6a
       cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000

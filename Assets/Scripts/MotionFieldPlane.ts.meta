@@ -39,12 +39,17 @@
     flowSpeed: false
     gustRadius: false
     gustStrength: false
+    indexProjectionObject: false
     initialPreset: false
     interactionObject: false
     metricCursorObject: false
     metricSampleStep: false
+    middleProjectionObject: false
+    pinkyProjectionObject: false
     planeDepth: false
     planeWidth: false
+    ringProjectionObject: false
+    thumbProjectionObject: false
     tracerCount: false
     trailSamples: false
     trailWidth: false
@@ -61,6 +66,11 @@
     - interactionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       fingerDriveObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       useFingerDrive: true
+      thumbProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      indexProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      middleProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      ringProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      pinkyProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       fingerDriveHeightCm: !<float> 8.000000
       metricCursorObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
@@ -88,6 +98,11 @@
     - '// @input SceneObject interactionObject {"hint":"Optional draggable handle. Its local X/Z position creates a moving gust in the field."}'
     - '// @input SceneObject fingerDriveObject {"hint":"Optional fingertip/cursor object. When close to the plane it directly drives motion generation."}'
     - '// @input bool useFingerDrive = true {"hint":"Let a fingertip/cursor near the plane drive the motion generator without grabbing the handle."}'
+    - '// @input SceneObject thumbProjectionObject {"hint":"Optional thumb joint/object to project as a raycast shadow onto the plane."}'
+    - '// @input SceneObject indexProjectionObject {"hint":"Optional index finger joint/object to project as a raycast shadow onto the plane."}'
+    - '// @input SceneObject middleProjectionObject {"hint":"Optional middle finger joint/object to project as a raycast shadow onto the plane."}'
+    - '// @input SceneObject ringProjectionObject {"hint":"Optional ring finger joint/object to project as a raycast shadow onto the plane."}'
+    - '// @input SceneObject pinkyProjectionObject {"hint":"Optional pinky finger joint/object to project as a raycast shadow onto the plane."}'
     - '// @input float fingerDriveHeightCm = 8 {"hint":"Max distance above/below the motion plane for finger-driven generation.", "widget":"slider", "min":1, "max":18, "step":0.5}'
     - '// @input SceneObject metricCursorObject {"hint":"Optional draggable metric cursor. Its local X/Z position samples divergence and curl."}'
     - '// @input SceneObject cameraRoot {"hint":"Camera used to billboard the DIV/CURL readout text. Empty searches for Camera Object."}'
