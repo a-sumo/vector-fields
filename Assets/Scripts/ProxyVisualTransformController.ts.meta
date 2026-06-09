@@ -26,17 +26,27 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
+    activationBlinkSeconds: false
+    autoActivateOnVisualSelected: false
+    autoActivateReadyFrames: false
     cameraRoot: false
     directorRoot: false
     dockScale: false
     dockSmoothing: false
     dockTweenSeconds: false
+    dockUnderActiveVisual: false
     driveRotation: false
     driveScale: false
     foldedDockOffset: false
     hideWhenNoActiveVisual: false
+    maxVisualDockScaleMultiplier: false
     menuRoot: false
+    minVisualDockScaleMultiplier: false
+    proxyDockPlacement: false
     unfoldedDockOffset: false
+    visualDockGapCm: false
+    visualDockScaleFromBounds: false
+    visualDockTowardUserCm: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -52,9 +62,19 @@
       unfoldedDockOffset: !<Vec3> {x: 22.000000, y: 0.000000, z: 0.600000}
       foldedDockOffset: !<Vec3> {x: 9.250000, y: 1.000000, z: 0.600000}
       dockScale: !<Vec3> {x: 8.000000, y: 8.000000, z: 8.000000}
+      dockUnderActiveVisual: true
+      proxyDockPlacement: !<float> 0.000000
+      visualDockGapCm: !<float> 8.000000
+      visualDockTowardUserCm: !<float> 10.000000
+      visualDockScaleFromBounds: 0.100000
+      minVisualDockScaleMultiplier: 0.700000
+      maxVisualDockScaleMultiplier: 1.450000
       dockSmoothing: !<float> 12.000000
       dockTweenSeconds: 0.380000
       hideWhenNoActiveVisual: true
+      autoActivateOnVisualSelected: true
+      autoActivateReadyFrames: !<float> 3.000000
+      activationBlinkSeconds: 2.500000
       driveScale: true
       driveRotation: true
   ScriptTypes:
@@ -67,8 +87,18 @@
     - '// @input vec3 unfoldedDockOffset = {0,14,0.6} {"hint":"Menu-local dock offset while the guide is unfolded."}'
     - '// @input vec3 foldedDockOffset = {17.1,12.2,0.6} {"hint":"Menu-local dock offset while the guide is folded."}'
     - '// @input vec3 dockScale = {4.8,4.8,4.8} {"hint":"Local scale used when the proxy returns to its dock."}'
+    - '// @input bool dockUnderActiveVisual = true {"hint":"Dock the proxy under the active visual instead of beside the menu."}'
+    - '// @input float proxyDockPlacement {"hint":"Spatial placement language for the proxy dock.", "widget":"combobox", "values":[{"label":"Auto by active visual", "value":0}, {"label":"Tabletop / low plane", "value":1}, {"label":"Hand reach / head-height", "value":2}, {"label":"Distance cursor reach", "value":3}]}'
+    - '// @input float visualDockGapCm = 8 {"hint":"Vertical gap below the active visual bounds.", "widget":"slider", "min":2, "max":28, "step":1}'
+    - '// @input float visualDockTowardUserCm = 18 {"hint":"How far the proxy is pulled toward the camera from the active visual bounds, so it fronts the visual.", "widget":"slider", "min":0, "max":36, "step":1}'
+    - '// @input float visualDockScaleFromBounds = 0.1 {"hint":"How much active visual size contributes to the proxy dock scale.", "widget":"slider", "min":0.02, "max":0.24, "step":0.01}'
+    - '// @input float minVisualDockScaleMultiplier = 0.7 {"hint":"Minimum multiplier applied to dockScale when adapting to the active visual bounds.", "widget":"slider", "min":0.45, "max":1.4, "step":0.05}'
+    - '// @input float maxVisualDockScaleMultiplier = 1.45 {"hint":"Maximum multiplier applied to dockScale when adapting to the active visual bounds.", "widget":"slider", "min":0.8, "max":2.4, "step":0.05}'
     - '// @input float dockSmoothing = 12 {"hint":"How quickly the proxy plane lands back on the dock.", "widget":"slider", "min":1, "max":30, "step":0.5}'
     - '// @input float dockTweenSeconds = 0.38 {"hint":"Seconds used when toggling the proxy inactive and returning it to dock.", "widget":"slider", "min":0.12, "max":1.2, "step":0.02}'
     - '// @input bool hideWhenNoActiveVisual {"hint":"Hide the proxy plane when no transformable visual is active."}'
+    - '// @input bool autoActivateOnVisualSelected {"hint":"Automatically activate the proxy as soon as a transformable visual is selected."}'
+    - '// @input float autoActivateReadyFrames = 3 {"hint":"Frames that the selected visual must have stable measurable bounds before auto-activating the proxy.", "widget":"slider", "min":1, "max":8, "step":1}'
+    - '// @input float activationBlinkSeconds = 2.5 {"hint":"Seconds that the proxy softly blinks after activation. Set to 0 to disable the activation blink.", "widget":"slider", "min":0, "max":6, "step":0.1}'
     - '// @input bool driveScale = true {"hint":"Apply proxy scale changes to the active visual root."}'
     - '// @input bool driveRotation = true {"hint":"Apply proxy rotation changes to the active visual root."}'

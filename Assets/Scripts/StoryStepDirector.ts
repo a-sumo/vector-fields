@@ -14,7 +14,8 @@ type StoryStepConfig = {
 
 type ExampleFieldId = "gravity" | "magnetism" | "wind" | "aerodynamics";
 type GravityExampleVariant = "field" | "artemis";
-type WindExampleVariant = "globe" | "car_flow";
+type WindExampleVariant = "globe" | "aerodynamics";
+type AerodynamicsBackend = "foil" | "car";
 type TheoryFieldModeId = "expansion" | "contraction" | "curl" | "motion";
 type GradientPaletteId = "jet" | "viridis" | "plasma";
 
@@ -99,6 +100,11 @@ export class StoryStepDirector extends BaseScriptComponent {
     cameraRoot: SceneObject = null as any;
 
     @input
+    @allowUndefined
+    @hint("Menu root used as the base transform for analytical field placement. Empty searches for Story Chapter Guide UI.")
+    menuRoot: SceneObject = null as any;
+
+    @input
     @hint("Enable the real content roots associated with the selected story step.")
     controlContentRoots: boolean = true;
 
@@ -166,7 +172,7 @@ export class StoryStepDirector extends BaseScriptComponent {
         new ComboBoxItem("plasma", 18),
     ]))
     @hint("Initial cube VectorField color map for theory modes.")
-    initialVectorColorMap: number = 17;
+    initialVectorColorMap: number = 18;
 
     @input
     @widget(new SliderWidget(0.05, 4.0, 0.01))
@@ -179,12 +185,20 @@ export class StoryStepDirector extends BaseScriptComponent {
     vectorColorMapOffset: number = 0.0;
 
     @input
-    @hint("Camera-relative placement for the 2D motion plane.")
-    motionFrontOffset: vec3 = new vec3(0.0, 0.0, -30.0);
-
-    @input
     @hint("Camera-relative placement for the real VectorField in the theory chapter.")
     theoryVectorFrontOffset: vec3 = new vec3(0.0, 0.0, -50.0);
+
+    @input
+    @hint("Menu-relative placement for Motion Field Root in analytical modes. X = menu right, Y = menu up/down, Z = toward user from the menu plane.")
+    analyticalTabletopOffset: vec3 = new vec3(0.0, -32.0, 18.0);
+
+    @input
+    @hint("Menu-relative placement for Vector Field Examples Root in analytical modes. Separate from the motion plane because this root has a different pivot/bounds.")
+    analyticalVectorFieldOffset: vec3 = new vec3(0.0, -24.0, 18.0);
+
+    @input('float')
+    @hint("Tilt analytical tabletop fields toward the user in degrees. 0 keeps the plane normal exactly world +Y.")
+    analyticalTabletopTiltDegrees: number = 10.0;
 
     @input
     @widget(new SliderWidget(0.35, 2.0, 0.05))
@@ -215,13 +229,17 @@ export class StoryStepDirector extends BaseScriptComponent {
     @hint("Wind globe offset in calibrated plane-local space.")
     windReferenceOffset: vec3 = new vec3(0.0, 24.0, 0.0);
 
-    @input('float')
-    @hint("Push the car-flow slice down (cm) so you look at it from above and the depth-drag handles are easy to reach.")
-    carFlowDropDistance: number = 14.0;
+    @input
+    @hint("Menu-relative Earth Winds globe staging. X = menu right, Y = above original menu anchor, Z = menu normal; negative Z tucks behind the menu.")
+    windGlobeMenuOffset: vec3 = new vec3(0.0, 10.0, -8.0);
+
+    @input
+    @hint("Menu-relative Aerodynamics staging. X = menu right, Y = below the menu, Z = menu normal; negative Z tucks behind the menu.")
+    aerodynamicsMenuOffset: vec3 = new vec3(0.0, -17.5, -2.0);
 
     @input('float')
-    @hint("Tilt the car-flow slice back (degrees) so the front/back drag axis has on-screen height. Flip the sign if it tilts the wrong way.")
-    carFlowTiltDegrees: number = 16.0;
+    @hint("Extra pitch for the menu-anchored aerodynamics field. Keep near zero when it should sit flush below the menu.")
+    aerodynamicsMenuTiltDegrees: number = 0.0;
 
     private currentStep: StoryStepConfig = STORY_STEP_CONFIGS[0];
     private selectedExampleField: ExampleFieldId = "gravity";
@@ -229,8 +247,9 @@ export class StoryStepDirector extends BaseScriptComponent {
     private theoryFieldSelected: boolean = false;
     private selectedGravityVariant: GravityExampleVariant = "field";
     private selectedWindVariant: WindExampleVariant = "globe";
+    private selectedAerodynamicsBackend: AerodynamicsBackend = "foil";
     private selectedTheoryFieldMode: number = 0;
-    private selectedGradientPalette: number = 17;
+    private selectedGradientPalette: number = 18;
     private selectedGravityStage: number = 2;
     private selectedMagneticTubeMode: number = 0;
     private selectedWindTubeMode: number = 0;
@@ -295,13 +314,18 @@ export class StoryStepDirector extends BaseScriptComponent {
         if (this.selectedExampleField === "wind") {
             this.selectedWindVariant = "globe";
         } else if (this.selectedExampleField === "aerodynamics") {
-            this.selectedWindVariant = "car_flow";
+            this.selectedWindVariant = "aerodynamics";
+            this.selectedAerodynamicsBackend = "foil";
+            if (this.selectedGradientPalette === 17) {
+                this.selectedGradientPalette = 18;
+            }
         }
         this.exampleFieldSelected = true;
-        if (this.currentStep.id === "examples") {
-            this.appliedKey = "";
-            this.applyCurrent(true);
+        if (this.currentStep.id !== "examples") {
+            this.currentStep = this.findStep("examples", "", 1);
         }
+        this.appliedKey = "";
+        this.applyCurrent(true);
     }
 
     // Return to the bare example-selector (no field staged).
@@ -324,9 +348,10 @@ export class StoryStepDirector extends BaseScriptComponent {
             this.selectedExampleField = "gravity";
             this.selectedGravityVariant = "field";
             matched = true;
-        } else if (key === "aerodynamics" || key === "aero" || key === "wind:car_flow" || key === "car_flow" || key === "car" || key === "flow") {
+        } else if (key === "aerodynamics" || key === "aero" || key === "wind:aerodynamics" || key === "wind:car_flow" || key === "car_flow" || key === "car" || key === "flow") {
             this.selectedExampleField = "aerodynamics";
-            this.selectedWindVariant = "car_flow";
+            this.selectedWindVariant = "aerodynamics";
+            this.selectedAerodynamicsBackend = key === "car" || key === "car_flow" || key === "wind:car_flow" ? "car" : "foil";
             matched = true;
         } else if (key === "wind:globe" || key === "globe" || key === "earth") {
             this.selectedExampleField = "wind";
@@ -335,8 +360,9 @@ export class StoryStepDirector extends BaseScriptComponent {
         }
         if (matched) {
             this.exampleFieldSelected = true;
-        }
-        if (this.currentStep.id === "examples") {
+            if (this.currentStep.id !== "examples") {
+                this.currentStep = this.findStep("examples", "", 1);
+            }
             this.appliedKey = "";
             this.applyCurrent(true);
         }
@@ -346,8 +372,24 @@ export class StoryStepDirector extends BaseScriptComponent {
         const field = this.normalizeExampleField(fieldName || this.selectedExampleField);
         if (field === "gravity") return this.selectedGravityVariant;
         if (field === "wind") return "globe";
-        if (field === "aerodynamics") return "car_flow";
+        if (field === "aerodynamics") return this.selectedAerodynamicsBackend;
         return "";
+    }
+
+    public selectAerodynamicsBackend(mode: number | string): void {
+        this.selectedExampleField = "aerodynamics";
+        this.selectedWindVariant = "aerodynamics";
+        this.selectedAerodynamicsBackend = this.normalizeAerodynamicsBackend(mode);
+        this.exampleFieldSelected = true;
+        if (this.currentStep.id !== "examples") {
+            this.currentStep = this.findStep("examples", "", 1);
+        }
+        this.appliedKey = "";
+        this.applyCurrent(true);
+    }
+
+    public setAerodynamicsBackend(mode: number | string): void {
+        this.selectAerodynamicsBackend(mode);
     }
 
     public selectGravityStage(stage: number): void {
@@ -382,6 +424,13 @@ export class StoryStepDirector extends BaseScriptComponent {
         }
     }
 
+    public hideAllVisuals(): void {
+        this.exampleFieldSelected = false;
+        this.theoryFieldSelected = false;
+        this.appliedKey = "";
+        this.parkContentRoots();
+    }
+
     public selectTheoryFieldMode(mode: number | string): void {
         this.selectedTheoryFieldMode = this.normalizeTheoryFieldMode(mode);
         this.theoryFieldSelected = true;
@@ -397,7 +446,7 @@ export class StoryStepDirector extends BaseScriptComponent {
 
     public selectGradientPalette(palette: number | string): void {
         this.selectedGradientPalette = this.normalizeGradientPalette(palette);
-        if (this.currentStep.id === "theory") {
+        if (this.isGradientControlContext()) {
             this.appliedKey = "";
             this.applyCurrent(true);
         }
@@ -413,7 +462,7 @@ export class StoryStepDirector extends BaseScriptComponent {
 
     public setGradientScale(value: number): void {
         this.vectorColorMapScale = this.clampNumber(value, 0.05, 4.0);
-        if (this.currentStep.id === "theory") {
+        if (this.isGradientControlContext()) {
             this.appliedKey = "";
             this.applyCurrent(true);
         }
@@ -429,7 +478,7 @@ export class StoryStepDirector extends BaseScriptComponent {
 
     public setGradientOffset(value: number): void {
         this.vectorColorMapOffset = this.clampNumber(value, -1.0, 1.0);
-        if (this.currentStep.id === "theory") {
+        if (this.isGradientControlContext()) {
             this.appliedKey = "";
             this.applyCurrent(true);
         }
@@ -487,9 +536,22 @@ export class StoryStepDirector extends BaseScriptComponent {
     // by default so custom child controls remain targetable.
     private applyManipulationLock(roots: Array<SceneObject | null>): void {
         for (let i = 0; i < roots.length; i++) {
-            this.setRootInteractionEnabled(roots[i], this.exampleManipulationEnabled);
-            this.setChildManipulationEnabled(roots[i], !this.exampleManipulationEnabled);
+            const root = roots[i];
+            if (this.shouldUseRootDirectManipulation(root)) {
+                this.setRootInteractionEnabled(root, true);
+                this.setChildManipulationEnabled(root, false);
+                continue;
+            }
+            this.setRootInteractionEnabled(root, this.exampleManipulationEnabled);
+            this.setChildManipulationEnabled(root, !this.exampleManipulationEnabled);
         }
+    }
+
+    private shouldUseRootDirectManipulation(root: SceneObject | null): boolean {
+        if (!root || root.name !== "Vector Field Examples Root") return false;
+        if (this.currentStep.id !== "theory") return false;
+        const theoryMode = THEORY_FIELD_MODES[this.normalizeTheoryFieldMode(this.selectedTheoryFieldMode)];
+        return theoryMode.id !== "motion";
     }
 
     private setRootInteractionEnabled(root: SceneObject | null, enabled: boolean): void {
@@ -573,7 +635,7 @@ export class StoryStepDirector extends BaseScriptComponent {
     }
 
     private applyCurrent(force: boolean): void {
-        const key = this.currentStep.id + ":" + this.selectedExampleField + ":" + this.selectedGravityVariant + ":" + this.selectedWindVariant + ":" + this.selectedGravityStage + ":" + this.selectedMagneticTubeMode + ":" + this.selectedWindTubeMode + ":" + this.selectedTheoryFieldMode + ":" + this.selectedGradientPalette + ":" + this.vectorColorMapScale + ":" + this.vectorColorMapOffset + ":" + this.getViewPlaneMode() + ":" + this.useFrontPlacementForAllVisuals + ":" + this.useReferenceCalibrationForExamples + ":" + this.useExampleProxySlots;
+        const key = this.currentStep.id + ":" + this.selectedExampleField + ":" + this.selectedGravityVariant + ":" + this.selectedWindVariant + ":" + this.selectedAerodynamicsBackend + ":" + this.selectedGravityStage + ":" + this.selectedMagneticTubeMode + ":" + this.selectedWindTubeMode + ":" + this.selectedTheoryFieldMode + ":" + this.selectedGradientPalette + ":" + this.vectorColorMapScale + ":" + this.vectorColorMapOffset + ":" + this.getViewPlaneMode() + ":" + this.useFrontPlacementForAllVisuals + ":" + this.useReferenceCalibrationForExamples + ":" + this.useExampleProxySlots;
         if (!force && key === this.appliedKey) return;
         this.appliedKey = key;
 
@@ -585,7 +647,7 @@ export class StoryStepDirector extends BaseScriptComponent {
         if (this.currentStep.id === "examples") {
             const variant = this.selectedExampleField === "gravity"
                 ? this.selectedGravityVariant
-                : (this.selectedExampleField === "wind" ? "globe" : (this.selectedExampleField === "aerodynamics" ? "car_flow" : ""));
+                : (this.selectedExampleField === "wind" ? "globe" : (this.selectedExampleField === "aerodynamics" ? this.selectedAerodynamicsBackend : ""));
             fieldSuffix = " [" + this.selectedExampleField + (variant.length > 0 ? ":" + variant : "") + "]";
         }
         print("StoryStepDirector: " + this.currentStep.id + fieldSuffix);
@@ -601,18 +663,21 @@ export class StoryStepDirector extends BaseScriptComponent {
         const showArtemis = showGravity && (!selectingExample || this.selectedGravityVariant === "artemis");
         const showWindSelection = step.wind && hasSelection && (!selectingExample || this.selectedExampleField === "wind");
         const showWindGlobe = showWindSelection && (!selectingExample || this.selectedWindVariant === "globe");
-        const showCarFlow = step.wind && hasSelection && selectingExample && this.selectedExampleField === "aerodynamics";
-        const showWindContent = showWindGlobe || showCarFlow;
+        const showAerodynamics = step.wind && hasSelection && selectingExample && this.selectedExampleField === "aerodynamics";
+        const showWindContent = showWindGlobe || showAerodynamics;
         const motionRoot = this.motionFieldRoot || this.findObjectByName("Motion Field Root");
         const vectorRoot = this.vectorFieldRoot || this.findObjectByName("Vector Field Examples Root");
         const magneticRoot = this.magneticFieldRoot || this.findObjectByName("Magnetic Field Root");
         const gravityRoot = this.gravityFieldRoot || this.findObjectByName("Gravity Field Root");
         const windRoot = this.windGlobeRoot || this.findObjectByName("Globe Calibration");
-        const carFlowRoot = this.findObjectByName("Car Fluid Flow");
+        const aerodynamicsRoot = this.findAeroFlowRoot();
+        const legacyCarFlowRoot = this.findObjectByName("Car Fluid Flow");
         const theoryMode = THEORY_FIELD_MODES[this.normalizeTheoryFieldMode(this.selectedTheoryFieldMode)];
         const showTheorySelection = step.id !== "theory" || this.theoryFieldSelected;
         const showTheoryPlane = step.id === "theory" && showTheorySelection && theoryMode.id === "motion";
         const showTheoryField = step.id === "theory" && showTheorySelection && theoryMode.id !== "motion";
+        const motionPlaneWasVisible = motionRoot ? motionRoot.enabled : false;
+        const theoryFieldWasVisible = vectorRoot ? vectorRoot.enabled : false;
 
         this.setEnabled(motionRoot, showTheoryPlane);
         this.setEnabled(vectorRoot, showTheoryField);
@@ -620,7 +685,10 @@ export class StoryStepDirector extends BaseScriptComponent {
         this.setEnabled(gravityRoot, showGravity);
         // Wind is enabled after placement below, avoiding a visible frame at its authored transform.
         this.setEnabled(windRoot, false);
-        this.setEnabled(carFlowRoot, showCarFlow);
+        this.setEnabled(aerodynamicsRoot, showAerodynamics);
+        if (legacyCarFlowRoot && legacyCarFlowRoot !== aerodynamicsRoot) {
+            this.setEnabled(legacyCarFlowRoot, false);
+        }
         this.setProxyVisualEnabled("Proxy_Gravity_Field_Example_Slot", !showGravity);
         this.setProxyVisualEnabled("Proxy_Magnetic_Field_Example_Slot", !showMagnetic);
         this.setProxyVisualEnabled("Proxy_Wind_Field_Example_Slot", !showWindContent);
@@ -630,19 +698,19 @@ export class StoryStepDirector extends BaseScriptComponent {
         this.setProxyVisualEnabled("Proxy_Divergence_Readout_Slot", !showTheoryPlane && !showTheoryField);
 
         if (showTheoryPlane) {
-            this.placeMotionPlane(motionRoot);
+            if (!motionPlaneWasVisible) this.placeMotionPlane(motionRoot);
             this.callLifecycle(motionRoot, "stage");
             this.applyTheoryMotionFieldMode(motionRoot);
         }
         if (showTheoryField) {
-            this.placeTheoryVectorField(vectorRoot);
+            if (!theoryFieldWasVisible) this.placeTheoryVectorField(vectorRoot);
             this.applyTheoryVectorFieldMode(vectorRoot);
         }
         if (!showTheoryPlane) {
             this.callLifecycle(motionRoot, "hide");
         }
 
-        if (!this.useFrontPlacementForAllVisuals && this.useReferenceCalibrationForExamples && (showGravity || showMagnetic || showWindGlobe || showCarFlow)) {
+        if (!this.useFrontPlacementForAllVisuals && this.useReferenceCalibrationForExamples && (showGravity || showMagnetic || showWindGlobe || showAerodynamics)) {
             this.calibrateReferenceIfNeeded();
         }
         if (showGravity) {
@@ -658,16 +726,16 @@ export class StoryStepDirector extends BaseScriptComponent {
             this.callLifecycle(magneticRoot, "refresh");
         }
         if (showWindGlobe) {
-            this.placeExampleRoot(windRoot, this.windFrontOffset, this.windReferenceOffset, "Proxy_Wind_Field_Example_Slot");
+            this.placeWindGlobeRoot(windRoot);
             this.callLifecycle(windRoot, "prepare");
             this.setEnabled(windRoot, true);
             this.applyTubeMode(windRoot, this.selectedWindTubeMode);
             this.callLifecycle(windRoot, "refresh");
         }
-        if (showCarFlow) {
-            this.placeExampleRoot(carFlowRoot, this.windFrontOffset, this.windReferenceOffset, "Proxy_Wind_Field_Example_Slot");
-            this.adjustCarFlowViewingAngle(carFlowRoot);
-            this.callLifecycle(carFlowRoot, "refresh");
+        if (showAerodynamics) {
+            this.placeAerodynamicsAtMenu(aerodynamicsRoot);
+            this.applyAerodynamicsBackend(aerodynamicsRoot);
+            this.callLifecycle(aerodynamicsRoot, "refresh");
         }
 
         this.applyManipulationLock([
@@ -676,7 +744,7 @@ export class StoryStepDirector extends BaseScriptComponent {
             gravityRoot,
             magneticRoot,
             windRoot,
-            carFlowRoot,
+            aerodynamicsRoot,
         ]);
 
         this.promoteMainExperienceVisuals([
@@ -685,7 +753,7 @@ export class StoryStepDirector extends BaseScriptComponent {
             magneticRoot,
             gravityRoot,
             windRoot,
-            carFlowRoot,
+            aerodynamicsRoot,
         ]);
         this.renderPrioritySettleRemaining = 0.5;
     }
@@ -697,7 +765,7 @@ export class StoryStepDirector extends BaseScriptComponent {
             this.magneticFieldRoot || this.findObjectByName("Magnetic Field Root"),
             this.gravityFieldRoot || this.findObjectByName("Gravity Field Root"),
             this.windGlobeRoot || this.findObjectByName("Globe Calibration"),
-            this.findObjectByName("Car Fluid Flow"),
+            this.findAeroFlowRoot(),
         ]);
     }
 
@@ -769,7 +837,7 @@ export class StoryStepDirector extends BaseScriptComponent {
     private placeMotionPlane(root: SceneObject | null): void {
         if (!root) return;
         this.restoreRootBaseScale(root);
-        this.placeFrontFacing(root, this.motionFrontOffset, true);
+        this.placeAnalyticalTabletop(root, this.analyticalTabletopOffset);
         this.disableScriptByName(root, "SurfacePlacer");
     }
 
@@ -789,9 +857,10 @@ export class StoryStepDirector extends BaseScriptComponent {
     private placeTheoryVectorField(root: SceneObject | null): void {
         if (!root) return;
         this.restoreRootBaseScale(root);
-        this.placeFrontFacing(root, this.theoryVectorFrontOffset, false);
+        this.placeAnalyticalTabletop(root, this.analyticalVectorFieldOffset);
         root.getTransform().setLocalScale(new vec3(this.theoryVectorScale, this.theoryVectorScale, this.theoryVectorScale));
         this.restoreVectorFieldTarget(root);
+        this.disableVectorFieldBoundsColliders(root);
     }
 
     private applyTheoryVectorFieldMode(root: SceneObject | null): void {
@@ -891,6 +960,7 @@ export class StoryStepDirector extends BaseScriptComponent {
 
     private restoreVectorFieldTarget(root: SceneObject | null): void {
         if (!root) return;
+        this.disableVectorFieldBoundsColliders(root);
         const target = this.findInTree(root, "Target");
         if (!target) return;
         target.enabled = true;
@@ -908,6 +978,19 @@ export class StoryStepDirector extends BaseScriptComponent {
         for (let i = 0; i < scripts.length; i++) {
             const script = scripts[i] as any;
             if (script) script.enabled = true;
+        }
+    }
+
+    private disableVectorFieldBoundsColliders(root: SceneObject | null): void {
+        if (!root) return;
+        const scripts = root.getComponents("Component.ScriptComponent");
+        for (let i = 0; i < scripts.length; i++) {
+            const script = scripts[i] as any;
+            const fieldCollider = script ? script.fieldCollider as ColliderComponent : null;
+            if (fieldCollider) fieldCollider.enabled = false;
+        }
+        for (let i = 0; i < root.getChildrenCount(); i++) {
+            this.disableVectorFieldBoundsColliders(root.getChild(i));
         }
     }
 
@@ -942,25 +1025,69 @@ export class StoryStepDirector extends BaseScriptComponent {
         this.placeFrontFacing(root, frontOffset, false);
     }
 
-    // The car-flow slice billboards to face the camera and lands at head height,
-    // which leaves it edge-on to its own front/back drag axis — hard to grab.
-    // Drop it below eye line (so you look down at it) and tilt it back a touch,
-    // giving the depth handles real on-screen height to pinch and slide.
-    private adjustCarFlowViewingAngle(root: SceneObject | null): void {
+    private placeWindGlobeRoot(root: SceneObject | null): void {
         if (!root) return;
+        this.restoreRootBaseScale(root);
+        if (this.useFrontPlacementForAllVisuals && this.placeWindGlobeAtMenu(root)) return;
+        this.placeExampleRoot(root, this.windFrontOffset, this.windReferenceOffset, "Proxy_Wind_Field_Example_Slot");
+    }
+
+    private placeWindGlobeAtMenu(root: SceneObject): boolean {
+        const menu = this.menuRoot || this.findObjectByName("Story Chapter Guide UI");
+        if (!menu) return false;
+
+        const menuTransform = menu.getTransform();
+        const menuRotation = menuTransform.getWorldRotation();
+        const menuScale = menuTransform.getLocalScale();
+        const offset = new vec3(
+            this.windGlobeMenuOffset.x * menuScale.x,
+            this.windGlobeMenuOffset.y * menuScale.y,
+            this.windGlobeMenuOffset.z * menuScale.z
+        );
+        const position = menuTransform.getWorldPosition().add(menuRotation.multiplyVec3(offset));
+
+        const camera = this.cameraRoot || this.findObjectByName("Camera Object") || this.findObjectByName("Camera");
+        const worldUp = new vec3(0.0, 1.0, 0.0);
+        let rotation = menuRotation;
+        if (camera) {
+            const toCamera = camera.getTransform().getWorldPosition().sub(position);
+            const faceDirection = this.safeHorizontalDirection(toCamera, new vec3(0.0, 0.0, 1.0));
+            rotation = faceDirection.length > 0.0001 ? quat.lookAt(faceDirection, worldUp) : menuRotation;
+        }
+
         const transform = root.getTransform();
+        transform.setWorldPosition(position);
+        transform.setWorldRotation(rotation);
+        return true;
+    }
 
-        if (Math.abs(this.carFlowDropDistance) > 0.001) {
-            const pos = transform.getWorldPosition();
-            transform.setWorldPosition(new vec3(pos.x, pos.y - this.carFlowDropDistance, pos.z));
+    private placeAerodynamicsAtMenu(root: SceneObject | null): void {
+        if (!root) return;
+        this.restoreRootBaseScale(root);
+        const menu = this.menuRoot || this.findObjectByName("Story Chapter Guide UI");
+        if (!menu) {
+            this.placeFrontFacing(root, this.windFrontOffset, false);
+            return;
         }
 
-        if (Math.abs(this.carFlowTiltDegrees) > 0.001) {
-            const rotation = transform.getWorldRotation();
-            const right = rotation.multiplyVec3(new vec3(1.0, 0.0, 0.0));
-            const pitch = quat.angleAxis(this.carFlowTiltDegrees * Math.PI / 180.0, right);
-            transform.setWorldRotation(pitch.multiply(rotation));
+        const menuTransform = menu.getTransform();
+        const menuRotation = menuTransform.getWorldRotation();
+        const menuScale = menuTransform.getLocalScale();
+        const offset = new vec3(
+            this.aerodynamicsMenuOffset.x * menuScale.x,
+            this.aerodynamicsMenuOffset.y * menuScale.y,
+            this.aerodynamicsMenuOffset.z * menuScale.z
+        );
+        const position = menuTransform.getWorldPosition().add(menuRotation.multiplyVec3(offset));
+        const transform = root.getTransform();
+        transform.setWorldPosition(position);
+
+        let rotation = menuRotation;
+        if (Math.abs(this.aerodynamicsMenuTiltDegrees) > 0.001) {
+            const right = menuRotation.multiplyVec3(new vec3(1.0, 0.0, 0.0));
+            rotation = quat.angleAxis(this.aerodynamicsMenuTiltDegrees * Math.PI / 180.0, right).multiply(menuRotation);
         }
+        transform.setWorldRotation(rotation);
     }
 
     private callLifecycle(root: SceneObject | null, methodName: string): void {
@@ -1035,6 +1162,55 @@ export class StoryStepDirector extends BaseScriptComponent {
         transform.setWorldRotation(rotation);
     }
 
+    private placeAnalyticalTabletop(root: SceneObject | null, localOffset: vec3): void {
+        if (!root) return;
+        const menu = this.menuRoot || this.findObjectByName("Story Chapter Guide UI");
+        const camera = this.cameraRoot || this.findObjectByName("Camera Object") || this.findObjectByName("Camera");
+        let target: vec3 | null = null;
+
+        if (menu) {
+            const menuTransform = menu.getTransform();
+            const menuRotation = menuTransform.getWorldRotation();
+            const cameraPosition = camera ? camera.getTransform().getWorldPosition() : menuTransform.getWorldPosition().add(menuRotation.multiplyVec3(new vec3(0.0, 0.0, 100.0)));
+            const menuPosition = menuTransform.getWorldPosition();
+            const right = menuRotation.multiplyVec3(new vec3(1.0, 0.0, 0.0));
+            const up = menuRotation.multiplyVec3(new vec3(0.0, 1.0, 0.0));
+            const menuNormal = menuRotation.multiplyVec3(new vec3(0.0, 0.0, 1.0));
+            const toCamera = cameraPosition.sub(menuPosition);
+            const frontSign = menuNormal.dot(toCamera) >= 0.0 ? 1.0 : -1.0;
+            const towardUser = menuNormal.uniformScale(frontSign);
+            target = menuPosition
+                .add(right.uniformScale(localOffset.x))
+                .add(up.uniformScale(localOffset.y))
+                .add(towardUser.uniformScale(localOffset.z));
+        } else if (camera) {
+            const cameraTransform = camera.getTransform();
+            const cameraPosition = cameraTransform.getWorldPosition();
+            const cameraRotation = cameraTransform.getWorldRotation();
+            const worldUp = new vec3(0.0, 1.0, 0.0);
+            const right = this.safeHorizontalDirection(cameraRotation.multiplyVec3(new vec3(1.0, 0.0, 0.0)), new vec3(1.0, 0.0, 0.0));
+            const forward = this.safeHorizontalDirection(cameraRotation.multiplyVec3(new vec3(0.0, 0.0, -1.0)), new vec3(0.0, 0.0, -1.0));
+            target = cameraPosition
+                .add(right.uniformScale(localOffset.x))
+                .add(worldUp.uniformScale(localOffset.y))
+                .add(forward.uniformScale(Math.abs(localOffset.z)));
+        } else {
+            root.getTransform().setLocalPosition(localOffset);
+            return;
+        }
+
+        const cameraPosition = camera ? camera.getTransform().getWorldPosition() : target.add(new vec3(0.0, 0.0, 100.0));
+        const worldUp = new vec3(0.0, 1.0, 0.0);
+        const toCamera = cameraPosition.sub(target);
+        const faceDirection = this.safeHorizontalDirection(toCamera, new vec3(0.0, 0.0, 1.0));
+        const yaw = faceDirection.length > 0.0001 ? quat.lookAt(faceDirection, worldUp) : quat.quatIdentity();
+        const tableRight = yaw.multiplyVec3(new vec3(1.0, 0.0, 0.0));
+        const tilt = quat.angleAxis(this.analyticalTabletopTiltDegrees * Math.PI / 180.0, tableRight);
+        const transform = root.getTransform();
+        transform.setWorldPosition(target);
+        transform.setWorldRotation(tilt.multiply(yaw));
+    }
+
     private restoreRootBaseScale(root: SceneObject | null): void {
         if (!root) return;
         const scale = this.baseScaleForRoot(root);
@@ -1053,6 +1229,7 @@ export class StoryStepDirector extends BaseScriptComponent {
     }
 
     public resetToDefaultStance(): void {
+        this.resetAeroFoilIfActive();
         this.exampleManipulationEnabled = false;
         this.appliedKey = "";
         this.applyCurrent(true);
@@ -1082,7 +1259,7 @@ export class StoryStepDirector extends BaseScriptComponent {
         const root = this.resolveActiveVisualRoot();
         if (!root) return "";
         return this.currentStep.id + ":" + root.name + ":" + this.selectedExampleField + ":" +
-            this.selectedGravityVariant + ":" + this.selectedWindVariant + ":" +
+            this.selectedGravityVariant + ":" + this.selectedWindVariant + ":" + this.selectedAerodynamicsBackend + ":" +
             this.selectedTheoryFieldMode + ":" + this.selectedGravityStage + ":" +
             this.selectedMagneticTubeMode + ":" + this.selectedWindTubeMode;
     }
@@ -1093,7 +1270,7 @@ export class StoryStepDirector extends BaseScriptComponent {
         const magneticRoot = this.magneticFieldRoot || this.findObjectByName("Magnetic Field Root");
         const gravityRoot = this.gravityFieldRoot || this.findObjectByName("Gravity Field Root");
         const windRoot = this.windGlobeRoot || this.findObjectByName("Globe Calibration");
-        const carFlowRoot = this.findObjectByName("Car Fluid Flow");
+        const aerodynamicsRoot = this.findAeroFlowRoot();
 
         if (this.currentStep.id === "theory") {
             const theoryMode = THEORY_FIELD_MODES[this.normalizeTheoryFieldMode(this.selectedTheoryFieldMode)];
@@ -1108,7 +1285,7 @@ export class StoryStepDirector extends BaseScriptComponent {
                 return this.enabledRoot(windRoot);
             }
             if (this.selectedExampleField === "aerodynamics") {
-                return this.enabledRoot(carFlowRoot);
+                return this.enabledRoot(aerodynamicsRoot);
             }
         }
 
@@ -1126,6 +1303,12 @@ export class StoryStepDirector extends BaseScriptComponent {
         if (key === "wind" || key === "globe" || key === "earth" || key === "earth_winds" || key === "earth winds") return "wind";
         if (key === "aerodynamics" || key === "aero" || key === "car_flow" || key === "car" || key === "flow") return "aerodynamics";
         return "gravity";
+    }
+
+    private normalizeAerodynamicsBackend(mode: number | string): AerodynamicsBackend {
+        if (typeof mode === "number") return Math.floor(mode) === 1 || Math.floor(mode) === 4 ? "car" : "foil";
+        const key = ("" + mode).toLowerCase();
+        return key === "car" || key === "car_flow" || key === "carslice" || key === "car_slice" || key === "baked" || key === "baked_car" ? "car" : "foil";
     }
 
     private exampleFieldFromIndex(index: number): ExampleFieldId {
@@ -1229,15 +1412,21 @@ export class StoryStepDirector extends BaseScriptComponent {
             if (key === "jet") return 13;
             if (key === "viridis") return 17;
             if (key === "plasma") return 18;
+            if (key === "aero" || key === "cyan" || key === "teal") return 19;
             return GRADIENT_PALETTE_DEFAULT;
         }
         if (isNaN(palette)) return GRADIENT_PALETTE_DEFAULT;
         const index = Math.floor(palette);
-        if (index === 13 || index === 17 || index === 18) return index;
+        if (index === 13 || index === 17 || index === 18 || index === 19) return index;
         if (index === 0) return 13;
         if (index === 1) return 17;
         if (index === 2) return 18;
         return GRADIENT_PALETTE_DEFAULT;
+    }
+
+    private isGradientControlContext(): boolean {
+        return this.currentStep.id === "theory" ||
+            (this.currentStep.id === "examples" && this.exampleFieldSelected && this.selectedExampleField === "aerodynamics");
     }
 
     private findStep(stepId: string, rootName: string, index: number): StoryStepConfig {
@@ -1267,7 +1456,89 @@ export class StoryStepDirector extends BaseScriptComponent {
         this.setEnabled(this.magneticFieldRoot || this.findObjectByName("Magnetic Field Root"), false);
         this.setEnabled(this.gravityFieldRoot || this.findObjectByName("Gravity Field Root"), false);
         this.setEnabled(this.windGlobeRoot || this.findObjectByName("Globe Calibration"), false);
+        this.setEnabled(this.findObjectByName("LiveFoilFlow2D"), false);
+        this.setEnabled(this.findObjectByName("LiveFoil"), false);
+        this.setEnabled(this.findObjectByName("Live Foil"), false);
         this.setEnabled(this.findObjectByName("Car Fluid Flow"), false);
+    }
+
+    private findAeroFlowRoot(): SceneObject | null {
+        if (this.selectedAerodynamicsBackend === "car") {
+            return this.findObjectByName("Car Fluid Flow") ||
+                this.findObjectByName("LiveFoilFlow2D") ||
+                this.findObjectByName("LiveFoil") ||
+                this.findObjectByName("Live Foil");
+        }
+        return this.findObjectByName("LiveFoilFlow2D") ||
+            this.findObjectByName("LiveFoil") ||
+            this.findObjectByName("Live Foil") ||
+            this.findObjectByName("Car Fluid Flow");
+    }
+
+    private applyAerodynamicsBackend(root: SceneObject | null): void {
+        if (this.selectedAerodynamicsBackend === "car") {
+            this.setCarAerodynamicsTreeEnabled(root, true);
+        }
+        const api = this.findAnyScriptApi(root, "setAerodynamicsMode") || this.findAnyScriptApi(root, "setAeroBackend");
+        if (api) {
+            if (typeof api.setAerodynamicsMode === "function") api.setAerodynamicsMode(this.selectedAerodynamicsBackend);
+            else if (typeof api.setAeroBackend === "function") api.setAeroBackend(this.selectedAerodynamicsBackend);
+        }
+        if (this.selectedAerodynamicsBackend !== "car") return;
+        const carApi = this.findAnyScriptApi(root, "setDataSet") || this.findAnyScriptApi(root, "setCarDataSet");
+        if (!carApi) return;
+        if (typeof carApi.setCarDataSet === "function") carApi.setCarDataSet();
+        else if (typeof carApi.setDataSet === "function") carApi.setDataSet(0);
+        if (typeof carApi.refreshObstacleContour === "function") carApi.refreshObstacleContour();
+        else if (typeof carApi.rebuildObstacleContour === "function") carApi.rebuildObstacleContour();
+        if (typeof carApi.refresh === "function") carApi.refresh();
+    }
+
+    private setCarAerodynamicsTreeEnabled(root: SceneObject | null, enabled: boolean): void {
+        if (!root) return;
+        const name = root.name || "";
+        if (name === "Car Flow Lines" ||
+            name === "Flow Slice Gizmo" ||
+            name === "racecar" ||
+            name === "Sketchfab_model" ||
+            name === "GLTF_SceneRootNode") {
+            root.enabled = enabled;
+        }
+        const scripts = root.getComponents("Component.ScriptComponent");
+        for (let i = 0; i < scripts.length; i++) {
+            const script = scripts[i] as any;
+            if (!script) continue;
+            try {
+                if (script.name === "CarFlowStreamlines" ||
+                    script.name === "FlowSliceGizmo" ||
+                    script.windApi !== undefined ||
+                    script.setDataSet !== undefined ||
+                    script.setSlice01 !== undefined) {
+                    script.enabled = enabled;
+                }
+            } catch (e) {}
+        }
+        for (let i = 0; i < root.getChildrenCount(); i++) {
+            this.setCarAerodynamicsTreeEnabled(root.getChild(i), enabled);
+        }
+    }
+
+    private resetAeroFoilIfActive(): void {
+        if (!(this.currentStep.id === "examples" && this.exampleFieldSelected && this.selectedExampleField === "aerodynamics")) return;
+        const root = this.findAeroFlowRoot();
+        if (this.selectedAerodynamicsBackend === "car") {
+            const carApi = this.findAnyScriptApi(root, "setSlice01");
+            if (carApi) {
+                if (typeof carApi.refreshSliceHome === "function") carApi.refreshSliceHome();
+                if (typeof carApi.setSlice01 === "function") carApi.setSlice01(0.5);
+                if (typeof carApi.refresh === "function") carApi.refresh();
+            }
+            return;
+        }
+        const api = this.findAnyScriptApi(root, "resetFoil") || this.findAnyScriptApi(root, "resetFoilPose");
+        if (!api) return;
+        if (typeof api.resetFoil === "function") api.resetFoil();
+        else if (typeof api.resetFoilPose === "function") api.resetFoilPose();
     }
 
     private findScriptApi(root: SceneObject | null, methodName: string): any {

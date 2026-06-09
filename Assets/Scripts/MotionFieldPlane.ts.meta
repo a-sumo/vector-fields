@@ -29,21 +29,31 @@
     arrowColumns: false
     arrowLength: false
     arrowRows: false
+    billboardMetricReadouts: false
+    cameraRoot: false
     curlStrength: false
+    fingerDriveHeightCm: false
+    fingerDriveObject: false
     flowAccumulation: false
     flowMemorySeconds: false
     flowSpeed: false
     gustRadius: false
     gustStrength: false
+    indexProjectionObject: false
     initialPreset: false
     interactionObject: false
     metricCursorObject: false
     metricSampleStep: false
+    middleProjectionObject: false
+    pinkyProjectionObject: false
     planeDepth: false
     planeWidth: false
+    ringProjectionObject: false
+    thumbProjectionObject: false
     tracerCount: false
     trailSamples: false
     trailWidth: false
+    useFingerDrive: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -54,7 +64,17 @@
     []
   DefaultScriptInputs:
     - interactionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      fingerDriveObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      useFingerDrive: true
+      thumbProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      indexProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      middleProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      ringProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      pinkyProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      fingerDriveHeightCm: !<float> 8.000000
       metricCursorObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      billboardMetricReadouts: true
       initialPreset: !<float> 3.000000
       planeWidth: !<float> 24.000000
       planeDepth: !<float> 14.000000
@@ -76,7 +96,17 @@
       {}
   InputLines:
     - '// @input SceneObject interactionObject {"hint":"Optional draggable handle. Its local X/Z position creates a moving gust in the field."}'
+    - '// @input SceneObject fingerDriveObject {"hint":"Legacy single fingertip/cursor object. It is projected onto the plane; only its temporal motion stirs the field."}'
+    - '// @input bool useFingerDrive = true {"hint":"Project finger joints onto the plane as shadows. The shadows are visible; only their temporal motion stirs the field."}'
+    - '// @input SceneObject thumbProjectionObject {"hint":"Optional thumb joint/object to project as a raycast shadow onto the plane."}'
+    - '// @input SceneObject indexProjectionObject {"hint":"Optional index finger joint/object to project as a raycast shadow onto the plane."}'
+    - '// @input SceneObject middleProjectionObject {"hint":"Optional middle finger joint/object to project as a raycast shadow onto the plane."}'
+    - '// @input SceneObject ringProjectionObject {"hint":"Optional ring finger joint/object to project as a raycast shadow onto the plane."}'
+    - '// @input SceneObject pinkyProjectionObject {"hint":"Optional pinky finger joint/object to project as a raycast shadow onto the plane."}'
+    - '// @input float fingerDriveHeightCm = 8 {"hint":"Max distance above/below the motion plane for finger-driven generation.", "widget":"slider", "min":1, "max":18, "step":0.5}'
     - '// @input SceneObject metricCursorObject {"hint":"Optional draggable metric cursor. Its local X/Z position samples divergence and curl."}'
+    - '// @input SceneObject cameraRoot {"hint":"Camera used to billboard the DIV/CURL readout text. Empty searches for Camera Object."}'
+    - '// @input bool billboardMetricReadouts = true {"hint":"Face the DIV/CURL readout text toward the camera every frame."}'
     - '// @input float initialPreset = 3 {"hint":"Initial planar field preset.", "widget":"combobox", "values":[{"label":"Expansion", "value":0}, {"label":"Contraction", "value":1}, {"label":"Curl", "value":2}, {"label":"Motion", "value":3}]}'
     - '// @input float planeWidth = 48 {"widget":"slider", "min":8, "max":64, "step":0.5}'
     - '// @input float planeDepth = 28 {"widget":"slider", "min":5, "max":44, "step":0.5}'
@@ -86,10 +116,10 @@
     - '// @input float gustStrength = 2.1 {"widget":"slider", "min":0, "max":3, "step":0.05}'
     - '// @input float gustRadius = 3.9 {"widget":"slider", "min":1, "max":8, "step":0.25}'
     - '// @input float curlStrength = 1.45 {"widget":"slider", "min":0, "max":3, "step":0.05}'
-    - '// @input float arrowColumns = 11 {"widget":"slider", "min":5, "max":27, "step":1}'
-    - '// @input float arrowRows = 7 {"widget":"slider", "min":3, "max":17, "step":1}'
+    - '// @input float arrowColumns = 9 {"widget":"slider", "min":5, "max":27, "step":1}'
+    - '// @input float arrowRows = 5 {"widget":"slider", "min":3, "max":17, "step":1}'
     - '// @input float trailWidth = 0.075 {"widget":"slider", "min":0.02, "max":0.18, "step":0.005}'
-    - '// @input float arrowLength = 0.95 {"widget":"slider", "min":0.25, "max":1.8, "step":0.025}'
+    - '// @input float arrowLength = 0.82 {"widget":"slider", "min":0.25, "max":1.8, "step":0.025}'
     - '// @input float metricSampleStep = 0.55 {"widget":"slider", "min":0.18, "max":1.2, "step":0.02}'
     - '// @input float flowMemorySeconds = 2 {"hint":"Field memory: seconds for stirred motion to ease back to rest after you stop. 0 = snap back instantly.", "widget":"slider", "min":0, "max":5, "step":0.1}'
     - '// @input float flowAccumulation = 1.65 {"hint":"How strongly continued stirring builds up momentum in the field (cumulative energy).", "widget":"slider", "min":0, "max":3, "step":0.05}'

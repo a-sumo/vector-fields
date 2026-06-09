@@ -4,12 +4,27 @@
     - !<own> a926edd0-316f-4f43-aabc-5943bb6c581a
 - !<PassInfo/a926edd0-316f-4f43-aabc-5943bb6c581a>
   CachedProperties:
+    - ArrowColor:
+        typeIdx: 5
+        value: {x: 1.000000, y: 0.900000, z: 0.960000, w: 0.980000}
+    - ArrowScale:
+        typeIdx: 1
+        value: 0.720000
+    - ArrowSpacing:
+        typeIdx: 1
+        value: 2.800000
     - ContouCount:
         typeIdx: 1
         value: 1.000000
     - EarthTint:
         typeIdx: 5
         value: {x: 1.000000, y: 0.280000, z: 0.220000, w: 1.000000}
+    - FlowScale:
+        typeIdx: 1
+        value: 1.600000
+    - FlowSpeed:
+        typeIdx: 1
+        value: 0.600000
     - MoonTint:
         typeIdx: 5
         value: {x: 0.220000, y: 0.600000, z: 1.000000, w: 1.000000}
@@ -453,15 +468,6 @@
     []
   BlendMode: PremultipliedAlpha
   Properties:
-    ArrowColor:
-      typeIdx: 5
-      value: {x: 1.000000, y: 0.900000, z: 0.960000, w: 0.980000}
-    ArrowScale:
-      typeIdx: 1
-      value: 0.720000
-    ArrowSpacing:
-      typeIdx: 1
-      value: 2.800000
     ColorHigh:
       typeIdx: 5
       value: {x: 1.000000, y: 0.080000, z: 0.100000, w: 1.000000}
@@ -495,12 +501,6 @@
     FieldLineWidth:
       typeIdx: 1
       value: 0.065000
-    FlowScale:
-      typeIdx: 1
-      value: 1.600000
-    FlowSpeed:
-      typeIdx: 1
-      value: 0.600000
     MoonMass:
       typeIdx: 1
       value: 0.442800

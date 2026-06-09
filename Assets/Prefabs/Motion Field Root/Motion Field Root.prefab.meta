@@ -195,7 +195,17 @@
   Enabled: true
   ScriptAsset: !<reference> 737dc505-c444-4a1b-a564-f30afdd88009
   ScriptInputsDefault:
+    fingerDriveObject: true
+    useFingerDrive: true
+    thumbProjectionObject: true
+    indexProjectionObject: true
+    middleProjectionObject: true
+    ringProjectionObject: true
+    pinkyProjectionObject: true
+    fingerDriveHeightCm: true
     metricCursorObject: true
+    cameraRoot: true
+    billboardMetricReadouts: true
     initialPreset: true
     planeWidth: true
     planeDepth: true
@@ -217,7 +227,17 @@
   ScriptInputs:
     "":
       interactionObject: !<reference.SceneObject> d1e89d15-cbf9-46d1-7a03-869425a15588
+      fingerDriveObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      useFingerDrive: true
+      thumbProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      indexProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      middleProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      ringProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      pinkyProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      fingerDriveHeightCm: !<float> 8.000000
       metricCursorObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      billboardMetricReadouts: true
       initialPreset: !<float> 3.000000
       planeWidth: !<float> 24.000000
       planeDepth: !<float> 14.000000

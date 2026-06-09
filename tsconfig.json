@@ -11,16 +11,20 @@
       "*": [
         "./Assets/*",
         "./Packages/*",
-        "./Support/*"
+        "./Cache/TypeScript/Src/Packages/*"
       ]
     },
     "skipDefaultLibCheck": true,
     "target": "es2021",
     "types": []
   },
+  "exclude": [
+    "node_modules/typescript/lib/lib.dom.d.ts"
+  ],
   "include": [
+    "./Cache/TypeScript/lib/LensifyTS/Declarations/**/*.d.ts",
     "./Assets/**/*.ts",
     "./Packages/**/*.ts",
-    "./Support/**/*.d.ts"
+    "./Cache/TypeScript/Src/Packages/**/*.ts"
   ]
 }

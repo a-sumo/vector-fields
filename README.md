@@ -2,7 +2,7 @@
 
 A Lens Studio project for exploring vector fields in augmented reality on Spectacles.
 
-It showcases the theory behnd vector fields and concrete real world examples such as gravitational fields, magnetic dipoles, Earth winds and aerodynamic airflow. 
+It showcases the theory behind vector fields and concrete real world examples such as gravitational fields, magnetic dipoles, Earth winds and aerodynamic airflow.
 
 ## Theory
 
@@ -17,4 +17,4 @@ The opening chapter teaches how to read a vector field before you start playing 
 - **Gravitational Fields**: Earth and Moon in a shared gravity field, with an optional Artemis II overlay that carries the crewed Orion path through the field.
 - **Magnetism** lets you move dipole magnets and watch the field lines recompute from their dipole moments.
 - **Earth Winds** real forecast wind data on a globe, with streamlines and inspectable storm markers.
-- **Aerodynamics** runs a wind-tunnel style flow around a car, with a draggable cross-section slice.
+- **Aerodynamics** runs a lightweight live flow field around airfoil and profile presets, with controls for shape, vector density, and flow speed.

@@ -14,6 +14,7 @@
     - !<own> a0d85fd6-b271-46c7-b4cd-229a9b924811
     - !<own> 33f7d2ff-6a63-4beb-b027-12bbe1f65b9d
     - !<own> 9604109c-b9f6-42d6-be57-c790bbfcee77
+    - !<own> 1fde15ab-a553-4b57-9bc9-a1b7957d8ffd
   layers: !<Layers/267ee9a7-aff2-4f9d-9a49-f71214747d03>
     userLayers:
       []
@@ -403,7 +404,6 @@
     planeSize: true
     arrowResolution: true
     artemisTrajectoryScale: true
-    artemisEarthClearance: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -428,9 +428,13 @@
       arrowWidth: 0.040000
       lineWidth: 0.080000
       artemisTrajectoryScale: 2.650000
-      artemisEarthClearance: 0.650000
+      artemisEarthClearance: 0.200000
       wellDepth: 2.400000
       material: !<reference.Material> 6b93edd3-80a7-493c-ad6f-624202005066
+      artemisPlannedMaterial: !<reference.Material> e2c46eb5-bedf-45a8-ae3b-649d803febba
+      artemisCompletionMaterial: !<reference.Material> 770ac6bb-e3d4-4f51-b454-a533ee8798da
+      artemisCursorMaterial: !<reference.Material> d0ad7d8a-f84e-4054-9372-56b4b9004490
+      artemisCursorColor: !<Vec4> {x: 0.000000, y: 0.864576, z: 0.965362, w: 1.000000}
       initialStage: !<float> 0.000000
   ScriptTypes:
     "":
@@ -457,21 +461,51 @@
   Enabled: true
   ScriptAsset: !<reference> 96387e59-493a-40d3-9df9-a6fd05246c27
   ScriptInputsDefault:
+    renderMode: true
     ribbonWidth: true
+    tubeColumns: true
+    tubeRows: true
+    tubeLength: true
+    tubeRadius: true
+    tubeRadialSegments: true
+    tubeNormalLift: true
     phaseSpeed: true
     speedScaleRef: true
+    tubeGlyphPulseStrength: true
+    tubeGlyphTemporalBend: true
+    animateRibbonGlyphs: true
+    glyphColor: true
+    useSpeedColorMap: true
+    colorMapScale: true
+    colorMapOffset: true
     autoScrollSpeed: true
     axis: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
     "":
-      material: !<reference.Material> a05ce627-6eb7-4f1a-b451-19fba45c2417
+      material: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
+      glyphMaterial: !<reference.Material> 8698a09e-f23c-43a9-b00d-804e33fe6fba
+      renderMode: !<float> 0.000000
       planeWidth: 10.702000
       planeHeight: 3.947000
       ribbonWidth: 0.100000
+      tubeColumns: 38
+      tubeRows: 16
+      tubeLength: 0.420000
+      tubeRadius: 0.035000
+      tubeRadialSegments: 6
+      tubeNormalLift: 0.045000
       phaseSpeed: 0.400000
       speedScaleRef: 1.500000
+      tubeGlyphPulseStrength: 0.450000
+      tubeGlyphTemporalBend: 0.160000
+      animateRibbonGlyphs: true
+      glyphColor: !<Vec4> {x: 0.000000, y: 0.950000, z: 1.000000, w: 1.000000}
+      useSpeedColorMap: false
+      colorMap: !<float> 18.000000
+      colorMapScale: !<float> 1.000000
+      colorMapOffset: !<float> 0.000000
       autoScroll: false
       autoScrollSpeed: 0.200000
       driveFromPosition: true
@@ -522,7 +556,7 @@
   PrefabRemaps:
     []
   Name: Car Flow Lines
-  Enabled: true
+  Enabled: false
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: -0.320000, y: 0.950000, z: 0.000000}
@@ -989,6 +1023,21 @@
     []
   Components:
     []
+- !<SceneObject/1fde15ab-a553-4b57-9bc9-a1b7957d8ffd>
+  PrefabRemaps:
+    []
+  Name: OrientedTubeGlyphField
+  Enabled: false
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 90.000000, y: 0.000000, z: 90.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> 5ca2aac4-d8c8-40c0-9d7a-017171e9db42
 - !<SceneObject/1fe1071f-e06a-40b7-aaaa-8f669d48c544>
   PrefabRemaps:
     []
@@ -1354,6 +1403,13 @@
   ScriptAsset: !<reference> df996528-653a-4558-83ca-61ac40ebc7a6
   ScriptInputsDefault:
     markerPrefab: true
+    markerSegments: true
+    markerRings: true
+    markerMaterial: true
+    markerColor: true
+    selectedMarkerColor: true
+    useWindSpeedPalette: true
+    selectedScaleMultiplier: true
     pulseAmount: true
     pulseHz: true
     surfaceLiftCm: true
@@ -1365,6 +1421,13 @@
       markerPrefab: !<reference.ObjectPrefab> 00000000-0000-0000-0000-000000000000
       markerTemplate: !<reference.SceneObject> 0df0b43d-c338-4c0e-b810-efc9a3d67776
       markerScale: 0.600000
+      markerSegments: 24
+      markerRings: 14
+      markerMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      markerColor: !<Vec4> {x: 0.150000, y: 0.950000, z: 1.000000, w: 0.900000}
+      selectedMarkerColor: !<Vec4> {x: 1.000000, y: 0.720000, z: 0.180000, w: 1.000000}
+      useWindSpeedPalette: true
+      selectedScaleMultiplier: 1.850000
       pulseAmount: 0.350000
       pulseHz: 1.400000
       surfaceLiftCm: !<float> 0.000000
@@ -1509,7 +1572,7 @@
     - ed75ed76-d2a7-46dc-94f1-4ce6fd3fa841: ff3ff9ef-ee02-4633-7c3c-067da3b1d011
     - f882ef77-2b42-4559-a238-057127befcb7: 6457d9ce-eb75-4bfa-78ca-41dcc047ed2f
   Name: racecar
-  Enabled: true
+  Enabled: false
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: 0.000000, y: 0.000000, z: 0.000000}
@@ -1642,6 +1705,9 @@
     - !<own> 18608aec-083f-433f-8711-54c2985e9aa4
   Components:
     - !<own> 0de8d1cb-88fb-4631-8822-8d088463662f
+    - !<own> d0514bc1-3c7d-49d6-ba2d-2ecf1ff7f547
+    - !<own> 4242d378-ecbc-4a4f-8965-935337b23265
+    - !<own> 33dfa5dd-363d-4300-926a-22101473df9e
 - !<SceneObject/302138ca-05b4-49e2-81f3-e294f5744622>
   PrefabRemaps:
     []
@@ -1760,6 +1826,64 @@
     - !<own> edc3f854-bedb-4fbf-924b-9f93e6264c2f
   Components:
     []
+- !<ScriptComponent/320938d5-929f-43f1-9acf-65b5e6294448>
+  PrefabRemaps:
+    []
+  Name: InteractableManipulation
+  Enabled: true
+  ScriptAsset: !<reference> 664b556b-1946-4c2c-866a-e675b4e86006
+  ScriptInputsDefault:
+    manipulateRootSceneObject: true
+    minimumScaleFactor: true
+    maximumScaleFactor: true
+    enableTranslation: true
+    enableRotation: true
+    enableScale: true
+    enableStretchZ: true
+    showStretchZProperties: true
+    zStretchFactorMin: true
+    zStretchFactorMax: true
+    useFilter: true
+    showFilterProperties: true
+    minCutoff: true
+    beta: true
+    dcutoff: true
+    showTranslationProperties: true
+    _enableXTranslation: true
+    _enableYTranslation: true
+    _enableZTranslation: true
+    showRotationProperties: true
+    _rotationAxis: true
+    isSynced: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      manipulateRootSceneObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      minimumScaleFactor: 0.250000
+      maximumScaleFactor: !<float> 20.000000
+      enableTranslation: true
+      enableRotation: true
+      enableScale: true
+      enableStretchZ: true
+      showStretchZProperties: false
+      zStretchFactorMin: !<float> 1.000000
+      zStretchFactorMax: !<float> 12.000000
+      useFilter: true
+      showFilterProperties: false
+      minCutoff: !<float> 2.000000
+      beta: 0.015000
+      dcutoff: !<float> 1.000000
+      showTranslationProperties: false
+      _enableXTranslation: true
+      _enableYTranslation: true
+      _enableZTranslation: true
+      showRotationProperties: false
+      _rotationAxis: All
+      isSynced: false
+  ScriptTypes:
+    "":
+      {}
 - !<ScriptComponent/329940fb-34dd-413d-8f14-ed6fa1f135b5>
   PrefabRemaps:
     []
@@ -1822,8 +1946,16 @@
   Enabled: true
   ScriptAsset: !<reference> 75bd3985-9cac-47b1-944a-1135dad96d09
   ScriptInputsDefault:
+    dockUnderActiveVisual: true
+    proxyDockPlacement: true
+    visualDockGapCm: true
+    visualDockScaleFromBounds: true
+    minVisualDockScaleMultiplier: true
+    maxVisualDockScaleMultiplier: true
     dockSmoothing: true
     dockTweenSeconds: true
+    autoActivateReadyFrames: true
+    activationBlinkSeconds: true
     driveScale: true
     driveRotation: true
   ScriptTypesDefault:
@@ -1836,14 +1968,42 @@
       unfoldedDockOffset: !<Vec3> {x: 0.000000, y: 14.000000, z: 0.600000}
       foldedDockOffset: !<Vec3> {x: 17.100000, y: 12.200000, z: 0.600000}
       dockScale: !<Vec3> {x: 4.800000, y: 4.800000, z: 4.800000}
+      dockUnderActiveVisual: true
+      proxyDockPlacement: !<float> 0.000000
+      visualDockGapCm: !<float> 8.000000
+      visualDockTowardUserCm: !<float> 18.000000
+      visualDockScaleFromBounds: 0.100000
+      minVisualDockScaleMultiplier: 0.700000
+      maxVisualDockScaleMultiplier: 1.450000
       dockSmoothing: !<float> 12.000000
       dockTweenSeconds: 0.380000
       hideWhenNoActiveVisual: false
+      autoActivateOnVisualSelected: false
+      autoActivateReadyFrames: !<float> 3.000000
+      activationBlinkSeconds: 2.500000
       driveScale: true
       driveRotation: true
   ScriptTypes:
     "":
       {}
+- !<ColliderComponent/33dfa5dd-363d-4300-926a-22101473df9e>
+  PrefabRemaps:
+    []
+  Name: Physics Collider
+  Enabled: true
+  Shape: !<Box>
+    FitVisual: false
+    Size: {x: 5.000000, y: 5.000000, z: 5.000000}
+  Matter: !<reference> 00000000-0000-0000-0000-000000000000
+  Filter: !<reference> 00000000-0000-0000-0000-000000000000
+  OverlapFilter: !<reference> 00000000-0000-0000-0000-000000000000
+  WorldSettings: !<reference> 00000000-0000-0000-0000-000000000000
+  EnableSmoothing: false
+  PositionTension: 30.000000
+  RotationTension: 30.000000
+  ForceCompound: false
+  Intangible: false
+  ShowCollider: false
 - !<SceneObject/33f7d2ff-6a63-4beb-b027-12bbe1f65b9d>
   PrefabRemaps:
     []
@@ -2233,6 +2393,64 @@
   BlendNormals: false
   BlendShapes:
     {}
+- !<ScriptComponent/4242d378-ecbc-4a4f-8965-935337b23265>
+  PrefabRemaps:
+    []
+  Name: InteractableManipulation
+  Enabled: true
+  ScriptAsset: !<reference> 664b556b-1946-4c2c-866a-e675b4e86006
+  ScriptInputsDefault:
+    manipulateRootSceneObject: true
+    minimumScaleFactor: true
+    maximumScaleFactor: true
+    enableTranslation: true
+    enableRotation: true
+    enableScale: true
+    enableStretchZ: true
+    showStretchZProperties: true
+    zStretchFactorMin: true
+    zStretchFactorMax: true
+    useFilter: true
+    showFilterProperties: true
+    minCutoff: true
+    beta: true
+    dcutoff: true
+    showTranslationProperties: true
+    _enableXTranslation: true
+    _enableYTranslation: true
+    _enableZTranslation: true
+    showRotationProperties: true
+    _rotationAxis: true
+    isSynced: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      manipulateRootSceneObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      minimumScaleFactor: 0.250000
+      maximumScaleFactor: !<float> 20.000000
+      enableTranslation: true
+      enableRotation: true
+      enableScale: true
+      enableStretchZ: true
+      showStretchZProperties: false
+      zStretchFactorMin: !<float> 1.000000
+      zStretchFactorMax: !<float> 12.000000
+      useFilter: true
+      showFilterProperties: false
+      minCutoff: !<float> 2.000000
+      beta: 0.015000
+      dcutoff: !<float> 1.000000
+      showTranslationProperties: false
+      _enableXTranslation: true
+      _enableYTranslation: true
+      _enableZTranslation: true
+      showRotationProperties: false
+      _rotationAxis: All
+      isSynced: false
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/430afaca-5a35-4b44-8567-0e934e0604b0>
   PrefabRemaps:
     []
@@ -2240,7 +2458,7 @@
   Enabled: true
   Layers: 1
   LocalTransform: !<TransformEntity>
-    Position: {x: 0.000000, y: 0.000000, z: -52.000000}
+    Position: {x: 0.000000, y: 0.000000, z: -72.000000}
     Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
     Scale: {x: 1.550000, y: 1.550000, z: 1.550000}
     HasSegmentScaleCompensation: false
@@ -2990,6 +3208,57 @@
     - !<own> eeefed81-5683-4d40-9498-fd8984e6e8f6
   Components:
     []
+- !<ScriptComponent/5ca2aac4-d8c8-40c0-9d7a-017171e9db42>
+  PrefabRemaps:
+    []
+  Name: OrientedTubeGlyphField
+  Enabled: true
+  ScriptAsset: !<reference> 533fbe83-49de-41bf-b091-441375e40ae6
+  ScriptInputsDefault:
+    fieldSourceMode: true
+    syncLayoutFromSource: true
+    syncTransformFromSource: true
+    dataPlane: true
+    normalLift: true
+    planeWidth: true
+    planeDepth: true
+    columns: true
+    rows: true
+    tubeLength: true
+    tubeRadius: true
+    _colorMap: true
+    renderOrder: true
+    rebuildFps: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      material: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
+      fieldSourceObject: !<reference.SceneObject> 0b6a6847-33e7-4426-8d0f-b1439e97c835
+      fieldSourceMode: !<float> 0.000000
+      syncLayoutFromSource: true
+      syncTransformFromSource: true
+      dataPlane: !<float> 0.000000
+      normalLift: 0.035000
+      fieldPreset: !<float> 4.000000
+      planeWidth: !<float> 24.000000
+      planeDepth: !<float> 14.000000
+      columns: !<float> 13.000000
+      rows: !<float> 9.000000
+      tubeLength: 0.820000
+      tubeRadius: 0.055000
+      radialSegments: !<float> 6.000000
+      fieldScale: 1.600000
+      animationSpeed: 1.600000
+      _colorMap: !<float> 18.000000
+      _colorMapScale: 0.540000
+      _colorMapOffset: 0.050000
+      magnitudeAlpha: !<float> 1.000000
+      renderOrder: !<float> 42.000000
+      rebuildFps: !<float> 20.000000
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/5d0fd01d-a7f6-432e-b50e-d0c6a689b942>
   PrefabRemaps:
     []
@@ -3041,6 +3310,24 @@
     - !<own> a68e7445-ae4f-41ff-8cec-4510db7bea1a
   Components:
     []
+- !<ColliderComponent/5f403bb6-eff5-4fbc-9000-0dac4ae7679e>
+  PrefabRemaps:
+    []
+  Name: Physics Collider
+  Enabled: true
+  Shape: !<Box>
+    FitVisual: false
+    Size: {x: 5.000000, y: 5.000000, z: 5.000000}
+  Matter: !<reference> 00000000-0000-0000-0000-000000000000
+  Filter: !<reference> 00000000-0000-0000-0000-000000000000
+  OverlapFilter: !<reference> 00000000-0000-0000-0000-000000000000
+  WorldSettings: !<reference> 00000000-0000-0000-0000-000000000000
+  EnableSmoothing: false
+  PositionTension: 30.000000
+  RotationTension: 30.000000
+  ForceCompound: false
+  Intangible: false
+  ShowCollider: false
 - !<RenderMeshVisual/5fa37268-1896-49a0-b157-2ecff0a9c18d>
   PrefabRemaps:
     []
@@ -3407,7 +3694,7 @@
   PrefabRemaps:
     []
   Name: Physics Collider
-  Enabled: true
+  Enabled: false
   Shape: !<Box>
     FitVisual: true
     Size: {x: 15.000000, y: 15.000000, z: 15.000000}
@@ -3561,6 +3848,16 @@
   Enabled: true
   ScriptAsset: !<reference> 737dc505-c444-4a1b-a564-f30afdd88009
   ScriptInputsDefault:
+    fingerDriveObject: true
+    useFingerDrive: true
+    thumbProjectionObject: true
+    indexProjectionObject: true
+    middleProjectionObject: true
+    ringProjectionObject: true
+    pinkyProjectionObject: true
+    fingerDriveHeightCm: true
+    cameraRoot: true
+    billboardMetricReadouts: true
     initialPreset: true
     tracerCount: true
     flowSpeed: true
@@ -3574,7 +3871,17 @@
   ScriptInputs:
     "":
       interactionObject: !<reference.SceneObject> a54d7fff-59ae-4fcf-9ef1-b658965b9789
+      fingerDriveObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      useFingerDrive: true
+      thumbProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      indexProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      middleProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      ringProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      pinkyProjectionObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      fingerDriveHeightCm: !<float> 8.000000
       metricCursorObject: !<reference.SceneObject> a8ec7196-82bb-4023-8dbc-852e49b9316a
+      cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      billboardMetricReadouts: true
       initialPreset: !<float> 3.000000
       planeWidth: !<float> 48.000000
       planeDepth: !<float> 28.000000
@@ -3587,10 +3894,48 @@
       arrowColumns: !<float> 11.000000
       arrowRows: !<float> 7.000000
       trailWidth: 0.075000
-      arrowLength: 0.950000
+      arrowLength: 0.820000
       metricSampleStep: 0.550000
       flowMemorySeconds: !<float> 2.000000
       flowAccumulation: 1.850000
+  ScriptTypes:
+    "":
+      {}
+- !<ScriptComponent/79587702-114e-4d44-88ec-3761f080d4f0>
+  PrefabRemaps:
+    []
+  Name: Interactable
+  Enabled: true
+  ScriptAsset: !<reference> 652e631a-22d0-4941-9f74-2943df59f34c
+  ScriptInputsDefault:
+    targetingMode: true
+    targetingVisual: true
+    ignoreInteractionPlane: true
+    keepHoverOnTrigger: true
+    enableInstantDrag: true
+    isScrollable: true
+    allowMultipleInteractors: true
+    enablePokeDirectionality: true
+    acceptableXDirections: true
+    acceptableYDirections: true
+    acceptableZDirections: true
+    useFilteredPinch: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      targetingMode: !<float> 3.000000
+      targetingVisual: !<float> 1.000000
+      ignoreInteractionPlane: false
+      keepHoverOnTrigger: false
+      enableInstantDrag: false
+      isScrollable: false
+      allowMultipleInteractors: true
+      enablePokeDirectionality: false
+      acceptableXDirections: !<float> 0.000000
+      acceptableYDirections: !<float> 0.000000
+      acceptableZDirections: !<float> 1.000000
+      useFilteredPinch: false
   ScriptTypes:
     "":
       {}
@@ -4019,6 +4364,9 @@
     followUser: true
     folded: true
     menuVisualScale: true
+    weatherMenuDropCm: true
+    analyticalMenuLiftCm: true
+    weatherLayoutSmoothing: true
     menuHorizontalOffsetCm: true
     menuBillboardPitchBlend: true
     followSmoothing: true
@@ -4039,6 +4387,9 @@
       menuVisualScale: 1.550000
       menuVerticalOffsetCm: !<float> -15.000000
       menuLowerOffsetCm: !<float> -14.000000
+      weatherMenuDropCm: !<float> -28.000000
+      analyticalMenuLiftCm: !<float> 14.000000
+      weatherLayoutSmoothing: !<float> 8.000000
       menuHorizontalOffsetCm: !<float> 0.000000
       menuBillboardPitchBlend: 0.350000
       followSmoothing: !<float> 9.000000
@@ -4341,7 +4692,57 @@
     - !<own> 2b707749-0be7-4a3a-8ac1-d14a5868af16
     - !<own> 0b6a6847-33e7-4426-8d0f-b1439e97c835
   Components:
+    - !<own> a17f8e7d-c0cc-4f9c-8f7d-1d515adcf201
+- !<ScriptComponent/a17f8e7d-c0cc-4f9c-8f7d-1d515adcf201>
+  PrefabRemaps:
     []
+  Name: LiveFoilFlow2D
+  Enabled: true
+  ScriptAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
+  ScriptInputsDefault:
+    liveEnabled: true
+    foilObject: true
+    planeWidth: true
+    planeHeight: true
+    updateHz: true
+    flowSpeed: true
+    invertFlowDirection: true
+    foilAngleDeg: true
+    foilCenterX: true
+    foilCenterY: true
+    foilChord01: true
+    obstacleShape: true
+    lineCount: true
+    lineSegments: true
+    lineWidth: true
+    dotScrollSpeed: true
+    flowColor: true
+    foilColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      liveEnabled: true
+      foilObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      planeWidth: !<float> 24.000000
+      planeHeight: 9.270000
+      updateHz: !<float> 15.000000
+      flowSpeed: 1.150000
+      invertFlowDirection: true
+      foilAngleDeg: !<float> 0.000000
+      foilCenterX: !<float> 0.000000
+      foilCenterY: !<float> 0.000000
+      foilChord01: 0.640000
+      obstacleShape: 0
+      lineCount: 9
+      lineSegments: 48
+      lineWidth: 0.055000
+      dotScrollSpeed: 1.600000
+      flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}
+      foilColor: !<Vec4> {x: 0.120000, y: 0.880000, z: 1.000000, w: 0.950000}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/9698ac20-c937-4d21-94d4-7705e13be774>
   PrefabRemaps:
     []
@@ -4564,7 +4965,9 @@
     - 20611fc4-d95e-4ab6-b136-6e4363d35457: 246e406c-6c8e-4115-5e66-4a6a904303ed
     - 2ff50d84-c28e-4922-a527-b1ae784c2ef7: 68617cb6-4585-4cb4-4188-64b440589b80
     - 306d18f0-7ea5-4e2d-a14e-54dde3fe2946: 4547dda7-7fa3-4471-42f9-53d873eaa770
+    - 33dfa5dd-363d-4300-926a-22101473df9e: 58c39040-27dd-44de-964e-993720a23706
     - 4097fcfc-06c0-4422-8877-b4683d89347c: b3994541-f6c7-4a38-7069-0545594d39b1
+    - 4242d378-ecbc-4a4f-8965-935337b23265: 918d07c0-b56c-4320-9ebd-92136db1821e
     - 43163b72-88eb-4edf-bdde-81950b6df61e: b9465c54-a3c2-4b20-471a-6f9aa4e840e8
     - 57bfdb92-2854-4735-a357-9463f60d4d9b: 0d846da2-664f-475d-7fc4-b89efb9ee6b4
     - 6b54fcc4-c51d-4a18-b371-7bf7fb532cac: 1f1085de-9969-4e37-4474-88ddb0d3a352
@@ -4572,6 +4975,7 @@
     - 7a5869a4-db46-40e4-b647-8d19996a8b54: 39bda1cb-18c0-41ea-68d8-3af772c1b3bb
     - 9e72f614-329f-4e4a-b149-7fe960315346: c0c3d116-02b6-433c-459f-0c999cba5d0f
     - beea31a6-1668-4401-87aa-8562d5bfd4fa: 05aae4ff-d7dc-4670-4663-316d4b59e28e
+    - d0514bc1-3c7d-49d6-ba2d-2ecf1ff7f547: 92b5fe2b-3ad1-4e82-9c5c-b6c97311de01
     - e96e45ea-e940-49dc-a3f3-3d3da617934d: 95ddfbf5-9874-4a2a-6d43-60d990706e44
     - fa0d7b81-5092-4c78-a970-efb36a1ca87f: 351a4940-22c4-418f-6043-a6dfe5a7df60
   Name: Magnetic Field Root
@@ -4618,7 +5022,7 @@
     - fa528d87-aa8f-4e23-8db4-7676ed116c72: 060a8331-01c0-4d4f-5bd5-ca46500afffe
     - fe704575-461d-4c39-92dd-2dc98eb78107: 4f115f0a-3f7e-411d-6903-c1ec7cb44910
   Name: Gravity Field Root
-  Enabled: false
+  Enabled: true
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: 0.000000, y: 0.000000, z: -118.000000}
@@ -4639,6 +5043,7 @@
   Enabled: true
   ScriptAsset: !<reference> d80f0a0d-1625-4d52-887a-307078659a91
   ScriptInputsDefault:
+    menuRoot: true
     controlContentRoots: true
     settleSeconds: true
     viewPlaneMode: true
@@ -4649,9 +5054,12 @@
     initialTheoryFieldMode: true
     vectorColorMapScale: true
     vectorColorMapOffset: true
+    analyticalTabletopOffset: true
+    analyticalTabletopTiltDegrees: true
     gravityReferenceOffset: true
     magneticReferenceOffset: true
     windReferenceOffset: true
+    windGlobeMenuOffset: true
     carFlowDropDistance: true
     carFlowTiltDegrees: true
   ScriptTypesDefault:
@@ -4666,6 +5074,7 @@
       applyOnStart: false
       initialStep: !<float> 1.000000
       cameraRoot: !<reference.SceneObject> 00000000-0000-0065-0000-000000000064
+      menuRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       controlContentRoots: true
       mainExperienceRenderOrder: !<float> 520.000000
       settleSeconds: 1.250000
@@ -4677,11 +5086,13 @@
       resetDefaultStanceNow: false
       initialExampleField: !<float> 0.000000
       initialTheoryFieldMode: !<float> 0.000000
-      initialVectorColorMap: !<float> 17.000000
+      initialVectorColorMap: !<float> 18.000000
       vectorColorMapScale: !<float> 1.000000
       vectorColorMapOffset: !<float> 0.000000
-      motionFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -30.000000}
       theoryVectorFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -50.000000}
+      analyticalTabletopOffset: !<Vec3> {x: 0.000000, y: -38.000000, z: -72.000000}
+      analyticalVectorFieldOffset: !<Vec3> {x: 0.000000, y: -10.000000, z: 25.000000}
+      analyticalTabletopTiltDegrees: !<float> 10.000000
       theoryVectorScale: 0.850000
       gravityFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -82.000000}
       magneticFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -78.000000}
@@ -4689,6 +5100,7 @@
       gravityReferenceOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: 0.000000}
       magneticReferenceOffset: !<Vec3> {x: 0.000000, y: 7.000000, z: 0.000000}
       windReferenceOffset: !<Vec3> {x: 0.000000, y: 24.000000, z: 0.000000}
+      windGlobeMenuOffset: !<Vec3> {x: 0.000000, y: 10.000000, z: -8.000000}
       carFlowDropDistance: !<float> 14.000000
       carFlowTiltDegrees: !<float> 16.000000
   ScriptTypes:
@@ -5049,7 +5461,10 @@
   ScriptAsset: !<reference> 7cf94e0f-e6b6-418a-a20f-e19c70f1c723
   ScriptInputsDefault:
     earthMass: true
-    wellDepth: true
+    useSurfaceTubeGlyphs: true
+    tubeLength: true
+    tubeRadius: true
+    tubeSurfaceLift: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -5058,28 +5473,35 @@
       moonObject: !<reference.SceneObject> 09486896-d0f0-4d89-bdea-750fe79fc51b
       planeMaterial: !<reference.Material> 6a25f8f0-b68d-481d-bf6c-5f6704152226
       planeSize: !<float> 56.000000
-      resolution: !<float> 160.000000
+      resolution: !<float> 56.000000
       earthMass: !<float> 18.000000
       moonMass: !<float> 4.000000
-      softening: 0.450000
-      wellDepth: !<float> 1.000000
-      depthScale: 0.260000
-      contourCount: !<float> 6.000000
+      softening: 1.500000
+      wellDepth: 2.700000
+      depthScale: 0.130000
+      contourCount: !<float> 5.000000
       contourThickness: 0.080000
-      flowSpeed: 0.450000
+      flowSpeed: !<float> 0.000000
       flowScale: 1.100000
-      opacityScale: 0.920000
-      colorLow: !<Vec4> {x: 0.120000, y: 0.360000, z: 1.000000, w: 1.000000}
-      colorHigh: !<Vec4> {x: 1.000000, y: 0.080000, z: 0.100000, w: 1.000000}
-      contourColor: !<Vec4> {x: 1.000000, y: 0.160000, z: 0.220000, w: 0.980000}
-      earthTint: !<Vec4> {x: 1.000000, y: 0.280000, z: 0.220000, w: 1.000000}
+      opacityScale: !<float> 1.000000
+      colorLow: !<Vec4> {x: 0.081804, y: 0.085451, z: 0.217380, w: 1.000000}
+      colorHigh: !<Vec4> {x: 0.158267, y: 0.840681, z: 0.115038, w: 1.000000}
+      contourColor: !<Vec4> {x: 0.042588, y: 0.733700, z: 0.962097, w: 0.979995}
+      earthTint: !<Vec4> {x: 0.993469, y: 0.986664, z: 1.000000, w: 1.000000}
       moonTint: !<Vec4> {x: 0.220000, y: 0.600000, z: 1.000000, w: 1.000000}
-      fieldLineColor: !<Vec4> {x: 0.300000, y: 0.620000, z: 1.000000, w: 0.780000}
-      arrowColor: !<Vec4> {x: 1.000000, y: 0.900000, z: 0.960000, w: 0.700000}
-      fieldLineDensity: 0.500000
+      fieldLineColor: !<Vec4> {x: 0.573846, y: 0.711269, z: 0.996475, w: 0.919997}
+      fieldLineDensity: 1.250000
       fieldLineWidth: 0.090000
-      arrowSpacing: 6.400000
-      arrowScale: 0.340000
+      useSurfaceTubeGlyphs: true
+      surfaceTubeMaterial: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
+      tubeColumns: !<float> 7.000000
+      tubeRows: !<float> 11.000000
+      tubeLengthSegments: !<float> 3.000000
+      tubeRadialSegments: !<float> 4.000000
+      tubeLength: 1.350000
+      tubeRadius: 0.045000
+      tubeSurfaceLift: 0.055000
+      tubeRebuildFps: !<float> 4.000000
   ScriptTypes:
     "":
       {}
@@ -5950,6 +6372,44 @@
     - !<own> 86a3fafe-e108-448b-9ca5-e1c2ad853417
   Components:
     []
+- !<ScriptComponent/d0514bc1-3c7d-49d6-ba2d-2ecf1ff7f547>
+  PrefabRemaps:
+    []
+  Name: Interactable
+  Enabled: true
+  ScriptAsset: !<reference> 652e631a-22d0-4941-9f74-2943df59f34c
+  ScriptInputsDefault:
+    targetingMode: true
+    targetingVisual: true
+    ignoreInteractionPlane: true
+    keepHoverOnTrigger: true
+    enableInstantDrag: true
+    isScrollable: true
+    allowMultipleInteractors: true
+    enablePokeDirectionality: true
+    acceptableXDirections: true
+    acceptableYDirections: true
+    acceptableZDirections: true
+    useFilteredPinch: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      targetingMode: !<float> 3.000000
+      targetingVisual: !<float> 1.000000
+      ignoreInteractionPlane: false
+      keepHoverOnTrigger: false
+      enableInstantDrag: false
+      isScrollable: false
+      allowMultipleInteractors: true
+      enablePokeDirectionality: false
+      acceptableXDirections: !<float> 0.000000
+      acceptableYDirections: !<float> 0.000000
+      acceptableZDirections: !<float> 1.000000
+      useFilteredPinch: false
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/d068eba3-1e0b-4b40-aa4c-7096a22b2748>
   PrefabRemaps:
     []
@@ -6471,7 +6931,9 @@
     - !<own> 032abe87-97d0-4383-bbc4-bebdf523ce30
     - !<own> 98ef9586-1be1-4c72-b3c2-994c212b2031
   Components:
-    []
+    - !<own> 5f403bb6-eff5-4fbc-9000-0dac4ae7679e
+    - !<own> 79587702-114e-4d44-88ec-3761f080d4f0
+    - !<own> 320938d5-929f-43f1-9acf-65b5e6294448
 - !<RenderMeshVisual/e75d592a-8300-4f59-8eec-3b9cd6ba7474>
   PrefabRemaps:
     []
@@ -6614,6 +7076,7 @@
     _planeDepth: true
     _stepSize: true
     _preset: true
+    _colorMap: true
     _colorMapScale: true
     _colorMapOffset: true
   ScriptTypesDefault:
@@ -6638,7 +7101,7 @@
       _fieldScale: 1.100000
       _flowSpeed: !<float> 48.000000
       _preset: !<float> 0.000000
-      _colorMap: !<float> 17.000000
+      _colorMap: !<float> 18.000000
       _colorMapScale: !<float> 1.000000
       _colorMapOffset: !<float> 0.000000
       trackedObject: !<reference.SceneObject> 98ef9586-1be1-4c72-b3c2-994c212b2031

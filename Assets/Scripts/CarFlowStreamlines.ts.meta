@@ -26,17 +26,40 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
+    animateRibbonGlyphs: false
     autoScroll: false
     autoScrollSpeed: false
     axis: false
+    colorMap: false
+    colorMapOffset: false
+    colorMapScale: false
+    dataSet: false
     driveFromPosition: false
+    driveFromWorldPosition: false
+    glyphColor: false
+    glyphMaterial: false
+    maskGlyphsInsideObstacle: false
     material: false
+    obstacleMaskOutlineColor: false
+    obstacleMaskOutlineWidth: false
     phaseSpeed: false
     planeHeight: false
     planeWidth: false
+    renderMode: false
     ribbonWidth: false
+    showObstacleMaskOutline: false
+    sliceControlObject: false
     speedScaleRef: false
     travel: false
+    tubeColumns: false
+    tubeGlyphPulseStrength: false
+    tubeGlyphTemporalBend: false
+    tubeLength: false
+    tubeNormalLift: false
+    tubeRadialSegments: false
+    tubeRadius: false
+    tubeRows: false
+    useSpeedColorMap: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -47,14 +70,37 @@
     []
   DefaultScriptInputs:
     - material: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      dataSet: !<float> 1.000000
+      glyphMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      renderMode: !<float> 0.000000
       planeWidth: !<float> 24.000000
       planeHeight: 9.270000
       ribbonWidth: 0.100000
+      tubeColumns: 38
+      tubeRows: 16
+      tubeLength: 0.420000
+      tubeRadius: 0.035000
+      tubeRadialSegments: 6
+      tubeNormalLift: 0.045000
       phaseSpeed: 0.400000
       speedScaleRef: 1.500000
+      tubeGlyphPulseStrength: 0.450000
+      tubeGlyphTemporalBend: 0.160000
+      animateRibbonGlyphs: true
+      glyphColor: !<Vec4> {x: 0.000000, y: 0.950000, z: 1.000000, w: 1.000000}
+      useSpeedColorMap: false
+      colorMap: !<float> 17.000000
+      colorMapScale: !<float> 1.000000
+      colorMapOffset: !<float> 0.000000
+      showObstacleMaskOutline: true
+      maskGlyphsInsideObstacle: true
+      obstacleMaskOutlineWidth: 0.055000
+      obstacleMaskOutlineColor: !<Vec4> {x: 0.000000, y: 1.000000, z: 1.000000, w: 0.950000}
       autoScroll: true
       autoScrollSpeed: 0.200000
       driveFromPosition: false
+      sliceControlObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      driveFromWorldPosition: true
       axis: 2
       travel: !<float> 20.000000
   ScriptTypes:
@@ -62,13 +108,36 @@
       {}
   InputLines:
     - // @input Asset.Material material
+    - '// @input float dataSet = 1 {"hint":"Offline CFD dataset used by the slice renderer.", "widget":"combobox", "values":[{"label":"Airfoil CFD", "value":1}, {"label":"Car CFD", "value":0}]}'
+    - '// @input Asset.Material glyphMaterial {"hint":"Separate material for fast car-flow ribbon glyphs. Use a CarFlowRibbonGlyph shader material here."}'
+    - '// @input float renderMode {"widget":"combobox", "values":[{"label":"Ribbon Glyphs", "value":0}, {"label":"Streamline Ribbons", "value":1}, {"label":"Debug Tubes", "value":2}]}'
     - // @input float planeWidth = 24
     - // @input float planeHeight = 9.27
     - // @input float ribbonWidth = 0.1
+    - // @input int tubeColumns = 26
+    - // @input int tubeRows = 11
+    - // @input float tubeLength = 0.52
+    - // @input float tubeRadius = 0.055
+    - // @input int tubeRadialSegments = 4
+    - // @input float tubeNormalLift = 0.045
     - // @input float phaseSpeed = 0.4
     - // @input float speedScaleRef = 1.5
+    - // @input float tubeGlyphPulseStrength
+    - // @input float tubeGlyphTemporalBend
+    - // @input bool animateRibbonGlyphs
+    - '// @input vec4 glyphColor = {0,0.95,1,1} {"hint":"Constant glyph color used when useSpeedColorMap is off.", "widget":"color"}'
+    - '// @input bool useSpeedColorMap = true {"hint":"Optional diagnostic mode. Off keeps all glyphs a constant color so orientation is the primary cue."}'
+    - '// @input float colorMap = 18 {"widget":"combobox", "values":[{"label":"jet", "value":13}, {"label":"viridis", "value":17}, {"label":"plasma", "value":18}]}'
+    - // @input float colorMapScale = 1
+    - // @input float colorMapOffset
+    - '// @input bool showObstacleMaskOutline = true {"hint":"Temporary CFD diagnostic overlay: draws the obstacle mask outline used by the baked solver."}'
+    - '// @input bool maskGlyphsInsideObstacle = true {"hint":"Suppresses glyphs whose centers fall inside the baked CFD obstacle silhouette."}'
+    - // @input float obstacleMaskOutlineWidth = 0.055
+    - '// @input vec4 obstacleMaskOutlineColor = {0,1,1,0.95} {"widget":"color"}'
     - // @input bool autoScroll
     - // @input float autoScrollSpeed = 0.2
     - // @input bool driveFromPosition = true
+    - "// @input SceneObject sliceControlObject {\"hint\":\"Optional object to read slice drag from. Leave empty to use this object's transform.\"}"
+    - '// @input bool driveFromWorldPosition = true {"hint":"Read drag in world space so Lens Studio/parent-object drags update the active slice."}'
     - // @input int axis = 2
     - // @input float travel = 3.635

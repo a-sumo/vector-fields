@@ -39,6 +39,9 @@ export type ArtemisMissionInfo = {
 
 @component
 export class ArtemisOrbit extends BaseScriptComponent {
+    private static readonly PATH_LIFT: number = 0.34;
+    private static readonly PATH_WIDTH: number = 0.28;
+
     @input
     @allowUndefined
     @hint("Earth — frame origin. Moon/spacecraft are placed relative to its world position.")
@@ -261,7 +264,10 @@ export class ArtemisOrbit extends BaseScriptComponent {
         tr.setLocalScale(vec3.one());
         this.trailVisual = this.pathObject.getComponent("Component.RenderMeshVisual");
         if (!this.trailVisual) this.trailVisual = this.pathObject.createComponent("Component.RenderMeshVisual");
-        if (this.pathMaterial) this.trailVisual.mainMaterial = this.pathMaterial;
+        if (this.pathMaterial) {
+            this.trailVisual.mainMaterial = this.pathMaterial;
+            this.applyPathColor(this.pathMaterial, new vec4(0.15, 1.0, 0.18, 1.0));
+        }
         this.lastTrailIdx = -1;
         this.updateTrail();
     }
@@ -275,24 +281,63 @@ export class ArtemisOrbit extends BaseScriptComponent {
 
         const d: any = ARTEMIS_II_TRAJECTORY;
         const base = this.earthLocal();
-        const verts: number[] = [];
+        const path: vec3[] = [];
         for (let i = 0; i <= idx; i++) {
             const p = base.add(this.offsetFor(new vec3(d.x[i], d.y[i], d.z[i])));
-            verts.push(p.x, p.y, p.z);
+            path.push(new vec3(p.x, p.y + ArtemisOrbit.PATH_LIFT, p.z));
         }
         const cur = base.add(this.offsetFor(this.lastScKm)); // end exactly at the rocket
-        verts.push(cur.x, cur.y, cur.z);
+        path.push(new vec3(cur.x, cur.y + ArtemisOrbit.PATH_LIFT, cur.z));
 
-        const count = (verts.length / 3) | 0;
         const mb = new MeshBuilder([{ name: "position", components: 3 }]);
-        mb.topology = MeshTopology.Lines;
+        mb.topology = MeshTopology.Triangles;
         mb.indexType = MeshIndexType.UInt16;
-        mb.appendVerticesInterleaved(verts);
-        const indices: number[] = [];
-        for (let i = 0; i < count - 1; i++) indices.push(i, i + 1);
-        mb.appendIndices(indices);
+        this.appendPlanarRibbon(mb, path, ArtemisOrbit.PATH_WIDTH);
         this.trailVisual.mesh = mb.getMesh();
         mb.updateMesh();
+    }
+
+    private appendPlanarRibbon(mb: MeshBuilder, path: vec3[], width: number): void {
+        if (path.length < 2) return;
+        const halfWidth = Math.max(0.002, width * 0.5);
+        const verts: number[] = [];
+        const indices: number[] = [];
+        let sideX = 1.0;
+        let sideZ = 0.0;
+
+        for (let i = 0; i < path.length; i++) {
+            const prev = path[Math.max(0, i - 1)];
+            const next = path[Math.min(path.length - 1, i + 1)];
+            const dx = next.x - prev.x;
+            const dz = next.z - prev.z;
+            const len = Math.sqrt(dx * dx + dz * dz);
+            if (len > 0.0001) {
+                sideX = dz / len;
+                sideZ = -dx / len;
+            }
+            const p = path[i];
+            verts.push(
+                p.x - sideX * halfWidth, p.y, p.z - sideZ * halfWidth,
+                p.x + sideX * halfWidth, p.y, p.z + sideZ * halfWidth
+            );
+        }
+
+        for (let i = 0; i < path.length - 1; i++) {
+            const a = i * 2;
+            indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+        }
+
+        mb.appendVerticesInterleaved(verts);
+        mb.appendIndices(indices);
+    }
+
+    private applyPathColor(material: Material, color: vec4): void {
+        if (!material) return;
+        const pass: any = (material as any).mainPass;
+        if (!pass) return;
+        try { pass.baseColor = color; } catch (e) {}
+        try { pass.baseColorFactor = color; } catch (e) {}
+        try { pass.Port_FinalColor_N004 = color; } catch (e) {}
     }
 
     private idxAt(t: number): number {

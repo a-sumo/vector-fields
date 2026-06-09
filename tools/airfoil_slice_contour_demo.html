@@ -1,0 +1,703 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Airfoil Slice Contour Demo</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0c1117;
+    --panel: #131b24;
+    --line: #2b3a4a;
+    --text: #eef6ff;
+    --muted: #9fb1c5;
+    --cyan: #23d7ff;
+    --amber: #ffbf47;
+    --green: #79e28b;
+  }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  body {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+  }
+  header {
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid var(--line);
+    background: #101822;
+  }
+  h1 {
+    margin: 0;
+    font-size: 17px;
+    letter-spacing: 0;
+  }
+  p {
+    margin: 4px 0 0;
+    color: var(--muted);
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto auto auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  label {
+    display: grid;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--cyan);
+  }
+  select, button {
+    min-height: 34px;
+    border: 1px solid #344558;
+    border-radius: 6px;
+    background: #1b2734;
+    color: var(--text);
+    padding: 0 10px;
+    font: inherit;
+  }
+  output {
+    min-width: 170px;
+    color: #d9f7ff;
+    font-variant-numeric: tabular-nums;
+  }
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    min-height: 0;
+  }
+  .stage {
+    min-height: 0;
+    padding: 14px;
+  }
+  canvas {
+    width: 100%;
+    height: calc(100vh - 148px);
+    min-height: 420px;
+    border: 1px solid var(--line);
+    background: #07111d;
+    display: block;
+  }
+  aside {
+    border-left: 1px solid var(--line);
+    padding: 14px 16px;
+    background: #101821;
+    color: var(--muted);
+  }
+  aside b {
+    color: var(--text);
+  }
+  .key {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .key div {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+  .swatch {
+    height: 3px;
+    border-radius: 99px;
+    background: var(--cyan);
+  }
+  .swatch.amber { background: var(--amber); }
+  .swatch.green { background: var(--green); }
+  @media (max-width: 860px) {
+    .controls { grid-template-columns: 1fr; }
+    main { grid-template-columns: 1fr; }
+    aside { border-left: 0; border-top: 1px solid var(--line); }
+    canvas { height: 56vh; }
+  }
+</style>
+<header>
+  <h1>Airfoil Slice Contour Demo</h1>
+  <p>Compare high-resolution span-slice contours. The foil is deliberately large so raster/outline errors are easy to spot.</p>
+</header>
+<section class="controls">
+  <label>
+    Slice
+    <input id="slice" type="range" min="0" max="23" value="12" step="1">
+  </label>
+  <select id="mode" aria-label="Contour mode">
+    <option value="current">Current bake: chord + thickness shrink</option>
+    <option value="fixed">Alternative: fixed chord, thickness shrink</option>
+    <option value="center">Center section repeated</option>
+  </select>
+  <select id="shape" aria-label="Object">
+    <option value="airfoil">Airfoil</option>
+    <option value="car">Racecar model mask</option>
+  </select>
+  <button id="play" type="button">Play</button>
+  <output id="readout"></output>
+</section>
+<main>
+  <div class="stage">
+    <canvas id="view" width="1280" height="720"></canvas>
+  </div>
+  <aside>
+    <b>What to look for</b>
+    <p>The orange line is extracted from a 2D signed-distance field. The green marks are short flow dashes clipped by the same SDF, so the effect reads as airflow without needing accurate CFD.</p>
+    <div class="key">
+      <div><span class="swatch"></span><span>Raster mask cells</span></div>
+      <div><span class="swatch amber"></span><span>Analytic contour</span></div>
+      <div><span class="swatch green"></span><span>Approximate flow streamlines</span></div>
+    </div>
+  </aside>
+</main>
+<script>
+const W = 224, H = 112, NZ = 24;
+const X0 = -5.35, X1 = 5.35, Y0 = -2.25, Y1 = 2.25;
+const AOA = 7 * Math.PI / 180;
+const CHORD = W * 0.66;
+const BASE_THICKNESS = 0.12;
+const CAMBER = 0.035;
+const CAMBER_POS = 0.40;
+const sliceInput = document.getElementById("slice");
+const modeInput = document.getElementById("mode");
+const shapeInput = document.getElementById("shape");
+const readout = document.getElementById("readout");
+const playButton = document.getElementById("play");
+const canvas = document.getElementById("view");
+const ctx = canvas.getContext("2d");
+let playing = false;
+let fluid = null;
+let lastFrameTime = performance.now();
+let sliceAccumulator = 0;
+let carSlices = null;
+let carLoading = false;
+
+function clamp(v, a, b) {
+  return Math.max(a, Math.min(b, v));
+}
+
+function smoothstep(t) {
+  const x = clamp(t, 0, 1);
+  return x * x * (3 - 2 * x);
+}
+
+function spanFactor(k) {
+  const z01 = NZ <= 1 ? 0 : k / (NZ - 1);
+  return Math.max(0, Math.sqrt(Math.max(0, 1 - Math.pow((z01 - 0.5) / 0.5, 2))));
+}
+
+function mapX(px) {
+  return X0 + (px / (W - 1)) * (X1 - X0);
+}
+
+function mapY(py) {
+  return Y1 - (py / (H - 1)) * (Y1 - Y0);
+}
+
+function screenX(x) {
+  const pad = 72;
+  return pad + ((x - X0) / (X1 - X0)) * (canvas.width - pad * 2);
+}
+
+function screenY(y) {
+  const pad = 54;
+  return pad + ((Y1 - y) / (Y1 - Y0)) * (canvas.height - pad * 2);
+}
+
+function airfoilParams(factor, mode) {
+  const centerX = W * 0.47;
+  const centerY = H * 0.54;
+  let chordScale = 1;
+  let thickScale = 1;
+  if (mode === "current") {
+    chordScale = 0.74 + 0.26 * factor;
+    thickScale = 0.20 + 0.80 * factor;
+  } else if (mode === "fixed") {
+    chordScale = 1;
+    thickScale = 0.16 + 0.84 * factor;
+  }
+  return {
+    kind: "airfoil",
+    centerX,
+    centerY,
+    chord: CHORD * chordScale,
+    thicknessScale: thickScale,
+    camber: CAMBER * (0.7 + 0.3 * factor),
+    angle: AOA,
+  };
+}
+
+function loadCarData() {
+  if (carSlices || carLoading) return;
+  carLoading = true;
+  fetch("car_cfd_mask_preview.html")
+    .then((r) => r.text())
+    .then((text) => {
+      const match = text.match(/const slices = ([\s\S]*?);\nconst input/);
+      carSlices = match ? JSON.parse(match[1]) : [];
+    })
+    .catch(() => { carSlices = []; })
+    .finally(() => { carLoading = false; });
+}
+
+function carParams(k) {
+  if (!carSlices) loadCarData();
+  const slices = carSlices || [];
+  const slice = slices.length ? slices[clamp(k, 0, slices.length - 1)] : null;
+  return {
+    kind: "car",
+    sliceKey: k,
+    maskRows: slice ? slice.maskRows : [],
+    outlineSegments: slice ? slice.outlineSegments : [],
+  };
+}
+
+function nacaHalfThickness(u, thicknessScale) {
+  const x = clamp(u, 0, 1);
+  return 5 * BASE_THICKNESS * thicknessScale * (
+    0.2969 * Math.sqrt(Math.max(0, x)) -
+    0.1260 * x -
+    0.3516 * x * x +
+    0.2843 * x * x * x -
+    0.1036 * x * x * x * x
+  );
+}
+
+function camberAt(u, m) {
+  const x = clamp(u, 0, 1);
+  const p = CAMBER_POS;
+  if (x < p) return m / (p * p) * (2 * p * x - x * x);
+  return m / ((1 - p) * (1 - p)) * ((1 - 2 * p) + 2 * p * x - x * x);
+}
+
+function sdfAt(gx, gy, params) {
+  const dx = gx - params.centerX;
+  const dy = params.centerY - gy;
+  const c = Math.cos(-params.angle);
+  const s = Math.sin(-params.angle);
+  const lx = dx * c - dy * s;
+  const ly = dx * s + dy * c;
+  const u = lx / params.chord + 0.5;
+  const yc = camberAt(u, params.camber) * params.chord;
+  const half = Math.max(0, nacaHalfThickness(u, params.thicknessScale) * params.chord);
+  const bodyDist = Math.abs(ly - yc) - half;
+  const endDist = Math.max(-u, u - 1) * params.chord;
+  if (u >= 0 && u <= 1) return bodyDist;
+  const clampedU = clamp(u, 0, 1);
+  const endX = (clampedU - 0.5) * params.chord;
+  const endY = camberAt(clampedU, params.camber) * params.chord;
+  const endHalf = Math.max(0.001, nacaHalfThickness(clampedU, params.thicknessScale) * params.chord);
+  return Math.hypot(lx - endX, ly - endY) - endHalf + Math.max(0, endDist) * 0.08;
+}
+
+function raster(params) {
+  const cells = Array.from({ length: H }, () => Array(W).fill(0));
+  for (let x = 0; x < W; x++) {
+    cells[0][x] = 1;
+    cells[H - 1][x] = 1;
+  }
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 0; x < W; x++) {
+      if (insideObstacle(x + 0.5, y + 0.5, params)) cells[y][x] = 1;
+    }
+  }
+  return cells;
+}
+
+function insideCarMask(gx, gy, params) {
+  const rows = params.maskRows || [];
+  if (!rows.length) return false;
+  const srcH = rows.length;
+  const srcW = rows[0] ? rows[0].length : 0;
+  if (!srcW) return false;
+  const sx = clamp(Math.floor((gx / W) * srcW), 0, srcW - 1);
+  const sy = clamp(Math.floor((gy / H) * srcH), 0, srcH - 1);
+  return (rows[sy] || "").charAt(sx) === "1";
+}
+
+function insideObstacle(gx, gy, params) {
+  if (params.kind === "car") return insideCarMask(gx, gy, params);
+  return sdfAt(gx, gy, params) <= 0;
+}
+
+function fluidKey(params) {
+  if (params.kind === "car") {
+    return ["car", params.sliceKey, (params.maskRows || []).join("")].join(":");
+  }
+  return [
+    params.kind || "airfoil",
+    params.centerX.toFixed(2),
+    params.centerY.toFixed(2),
+    params.chord.toFixed(2),
+    params.thicknessScale.toFixed(3),
+    params.camber.toFixed(3),
+    params.angle.toFixed(3),
+  ].join(":");
+}
+
+function ensureFluid(params) {
+  const key = fluidKey(params);
+  if (fluid && fluid.key === key) return fluid;
+  const n = W * H;
+  const obstacles = new Uint8Array(n);
+  const velocityX = new Float32Array(n);
+  const velocityY = new Float32Array(n);
+  const pressure = new Float32Array(n);
+  const particles = [];
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      obstacles[i] = (y === 0 || y === H - 1 || insideObstacle(x + 0.5, y + 0.5, params)) ? 1 : 0;
+      velocityX[i] = obstacles[i] ? 0 : 1.15;
+      velocityY[i] = 0;
+    }
+  }
+  fluid = { key, obstacles, velocityX, velocityY, pressure, particles, spawn: 0 };
+  return fluid;
+}
+
+function sampleField(field, x, y) {
+  const fx = clamp(x, 0, W - 1.001);
+  const fy = clamp(y, 0, H - 1.001);
+  const x0 = Math.floor(fx), y0 = Math.floor(fy);
+  const x1 = Math.min(W - 1, x0 + 1), y1 = Math.min(H - 1, y0 + 1);
+  const tx = fx - x0, ty = fy - y0;
+  const a = field[y0 * W + x0] * (1 - tx) + field[y0 * W + x1] * tx;
+  const b = field[y1 * W + x0] * (1 - tx) + field[y1 * W + x1] * tx;
+  return a * (1 - ty) + b * ty;
+}
+
+function applyFluidBoundaries(f) {
+  const u = f.velocityX, v = f.velocityY, obs = f.obstacles;
+  for (let y = 0; y < H; y++) {
+    let i = y * W;
+    if (!obs[i]) {
+      u[i] = 1.35;
+      v[i] = 0;
+    }
+    i = y * W + W - 1;
+    u[i] = u[i - 1];
+    v[i] = v[i - 1];
+  }
+  for (let x = 0; x < W; x++) {
+    let top = x, bottom = (H - 1) * W + x;
+    u[top] = u[W + x];
+    v[top] = 0;
+    u[bottom] = u[(H - 2) * W + x];
+    v[bottom] = 0;
+  }
+  for (let i = 0; i < obs.length; i++) {
+    if (obs[i]) {
+      u[i] = 0;
+      v[i] = 0;
+    }
+  }
+}
+
+function advectFluid(f, dt) {
+  const u = f.velocityX, v = f.velocityY, obs = f.obstacles;
+  const nu = new Float32Array(u);
+  const nv = new Float32Array(v);
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      if (obs[i]) continue;
+      const bx = x - u[i] * dt;
+      const by = y - v[i] * dt;
+      nu[i] = sampleField(u, bx, by);
+      nv[i] = sampleField(v, bx, by);
+    }
+  }
+  f.velocityX = nu;
+  f.velocityY = nv;
+}
+
+function diffuseFluid(f) {
+  const alpha = 0.018;
+  const obs = f.obstacles;
+  for (const fieldName of ["velocityX", "velocityY"]) {
+    const field = f[fieldName];
+    const next = new Float32Array(field);
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        if (obs[i]) continue;
+        next[i] = field[i] + alpha * (field[i - 1] + field[i + 1] + field[i - W] + field[i + W] - 4 * field[i]);
+      }
+    }
+    f[fieldName] = next;
+  }
+}
+
+function projectFluid(f) {
+  const u = f.velocityX, v = f.velocityY, p = f.pressure, obs = f.obstacles;
+  const div = new Float32Array(W * H);
+  p.fill(0);
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      if (!obs[i]) div[i] = 0.5 * ((u[i + 1] - u[i - 1]) + (v[i + W] - v[i - W]));
+    }
+  }
+  for (let iter = 0; iter < 18; iter++) {
+    const np = new Float32Array(p);
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        if (!obs[i]) np[i] = 0.25 * (p[i - 1] + p[i + 1] + p[i - W] + p[i + W] - div[i]);
+      }
+    }
+    p.set(np);
+  }
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      if (obs[i]) continue;
+      u[i] -= 0.5 * (p[i + 1] - p[i - 1]);
+      v[i] -= 0.5 * (p[i + W] - p[i - W]);
+    }
+  }
+}
+
+function stepFluid(f, dt) {
+  const stepDt = Math.min(1.2, dt * 28);
+  applyFluidBoundaries(f);
+  diffuseFluid(f);
+  projectFluid(f);
+  advectFluid(f, stepDt);
+  applyFluidBoundaries(f);
+}
+
+function updateParticles(f, dt) {
+  f.spawn += dt * 520;
+  while (f.spawn >= 1) {
+    const y = 4 + Math.random() * (H - 8);
+    f.particles.push({
+      x: 1.5 + Math.random() * 2,
+      y,
+      px: 1.5,
+      py: y,
+      life: 1,
+    });
+    f.spawn -= 1;
+  }
+  for (let i = f.particles.length - 1; i >= 0; i--) {
+    const p = f.particles[i];
+    p.px = p.x;
+    p.py = p.y;
+    const gx = Math.floor(p.x), gy = Math.floor(p.y);
+    if (gx < 0 || gx >= W || gy < 0 || gy >= H || f.obstacles[gy * W + gx]) {
+      f.particles.splice(i, 1);
+      continue;
+    }
+    const vx = sampleField(f.velocityX, p.x, p.y);
+    const vy = sampleField(f.velocityY, p.x, p.y);
+    p.x += vx * dt * 42;
+    p.y += vy * dt * 42;
+    p.life *= 0.997;
+    if (p.x > W || p.y < 1 || p.y > H - 1 || p.life < 0.12) f.particles.splice(i, 1);
+  }
+  if (f.particles.length > 2600) f.particles.splice(0, f.particles.length - 2600);
+}
+
+function drawVelocityDashes(f, params) {
+  const phase = (performance.now() * 0.018) % 8;
+  ctx.save();
+  ctx.lineCap = "round";
+  for (let y = 7; y < H - 7; y += 4) {
+    for (let x = 7 + ((y * 3 + phase) % 8); x < W - 7; x += 8) {
+      if (insideObstacle(x, y, params)) continue;
+      const vx = sampleField(f.velocityX, x, y);
+      const vy = sampleField(f.velocityY, x, y);
+      const speed = Math.hypot(vx, vy);
+      if (speed < 0.04) continue;
+      const nx = vx / speed;
+      const ny = vy / speed;
+      const len = clamp(2.6 + speed * 2.6, 2.5, 7.5);
+      const x0 = x - nx * len * 0.5;
+      const y0 = y - ny * len * 0.5;
+      const x1 = x + nx * len * 0.5;
+      const y1 = y + ny * len * 0.5;
+      if (insideObstacle(x0, y0, params) || insideObstacle(x1, y1, params)) continue;
+      ctx.globalAlpha = clamp(0.18 + speed * 0.18, 0.22, 0.62);
+      ctx.strokeStyle = speed > 1.2 ? "rgba(165, 246, 172, 1)" : "rgba(91, 205, 121, 1)";
+      ctx.lineWidth = clamp(0.9 + speed * 0.28, 1, 2);
+      ctx.beginPath();
+      ctx.moveTo(screenX(mapX(x0)), screenY(mapY(y0)));
+      ctx.lineTo(screenX(mapX(x1)), screenY(mapY(y1)));
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawContour(params) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 191, 71, 0.98)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  if (params.kind === "car") {
+    for (const seg of params.outlineSegments || []) {
+      ctx.moveTo(screenX(seg[0]), screenY(seg[1]));
+      ctx.lineTo(screenX(seg[2]), screenY(seg[3]));
+    }
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  const interp = (a, b, va, vb) => {
+    const t = Math.abs(va - vb) < 1e-6 ? 0.5 : va / (va - vb);
+    return a + (b - a) * clamp(t, 0, 1);
+  };
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 0; x < W - 1; x++) {
+      const v0 = sdfAt(x, y, params);
+      const v1 = sdfAt(x + 1, y, params);
+      const v2 = sdfAt(x + 1, y + 1, params);
+      const v3 = sdfAt(x, y + 1, params);
+      const pts = [];
+      if ((v0 <= 0) !== (v1 <= 0)) pts.push([interp(x, x + 1, v0, v1), y]);
+      if ((v1 <= 0) !== (v2 <= 0)) pts.push([x + 1, interp(y, y + 1, v1, v2)]);
+      if ((v2 <= 0) !== (v3 <= 0)) pts.push([interp(x + 1, x, v2, v3), y + 1]);
+      if ((v3 <= 0) !== (v0 <= 0)) pts.push([x, interp(y + 1, y, v3, v0)]);
+      if (pts.length >= 2) {
+        for (let i = 0; i + 1 < pts.length; i += 2) {
+          ctx.moveTo(screenX(mapX(pts[i][0])), screenY(mapY(pts[i][1])));
+          ctx.lineTo(screenX(mapX(pts[i + 1][0])), screenY(mapY(pts[i + 1][1])));
+        }
+      }
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function sdfGradient(gx, gy, params) {
+  const dx = sdfAt(gx + 0.75, gy, params) - sdfAt(gx - 0.75, gy, params);
+  const dy = sdfAt(gx, gy + 0.75, params) - sdfAt(gx, gy - 0.75, params);
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: dx / len, y: dy / len };
+}
+
+function localToGrid(lx, ly, params) {
+  const c = Math.cos(params.angle);
+  const s = Math.sin(params.angle);
+  const dx = lx * c - ly * s;
+  const dy = lx * s + ly * c;
+  return { x: params.centerX + dx, y: params.centerY - dy };
+}
+
+function drawFlow(params, factor) {
+  ctx.save();
+  ctx.lineCap = "round";
+  const now = performance.now();
+  const dt = Math.min(0.04, (now - lastFrameTime) / 1000 || 0.016);
+  lastFrameTime = now;
+  const f = ensureFluid(params);
+  for (let i = 0; i < 2; i++) stepFluid(f, dt * 0.5);
+  updateParticles(f, dt);
+  drawVelocityDashes(f, params);
+
+  for (const p of f.particles) {
+    const vx = sampleField(f.velocityX, p.x, p.y);
+    const vy = sampleField(f.velocityY, p.x, p.y);
+    const speed = Math.hypot(vx, vy);
+    const alpha = Math.min(0.86, p.life * (0.32 + speed * 0.35));
+    if (alpha <= 0.03 || insideObstacle(p.x, p.y, params) || insideObstacle(p.px, p.py, params)) continue;
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = speed > 1.25 ? "rgba(156, 245, 164, 1)" : "rgba(95, 210, 124, 1)";
+    ctx.lineWidth = Math.min(3.0, 1.2 + speed * 0.7);
+    ctx.beginPath();
+    ctx.moveTo(screenX(mapX(p.px)), screenY(mapY(p.py)));
+    ctx.lineTo(screenX(mapX(p.x)), screenY(mapY(p.y)));
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1.0;
+  ctx.restore();
+}
+
+function draw() {
+  const k = Number(sliceInput.value);
+  const mode = modeInput.value;
+  const rawFactor = spanFactor(k);
+  const factor = mode === "center" ? 1 : rawFactor;
+  const z = -1.82 + (k / (NZ - 1)) * 3.64;
+  const shape = shapeInput.value;
+  const params = shape === "car" ? carParams(k) : airfoilParams(smoothstep(factor), mode);
+  const cells = raster(params);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#07111d";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = "rgba(73, 92, 113, 0.42)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 14) {
+    ctx.beginPath();
+    ctx.moveTo(screenX(mapX(x)), screenY(Y0));
+    ctx.lineTo(screenX(mapX(x)), screenY(Y1));
+    ctx.stroke();
+  }
+  for (let y = 0; y <= H; y += 7) {
+    ctx.beginPath();
+    ctx.moveTo(screenX(X0), screenY(mapY(y)));
+    ctx.lineTo(screenX(X1), screenY(mapY(y)));
+    ctx.stroke();
+  }
+
+  drawFlow(params, factor);
+
+  const cellW = (screenX(X1) - screenX(X0)) / W;
+  const cellH = (screenY(Y0) - screenY(Y1)) / H;
+  ctx.fillStyle = "rgba(35, 215, 255, 0.72)";
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 0; x < W; x++) {
+      if (cells[y][x]) {
+        const sx = screenX(mapX(x));
+        const sy = screenY(mapY(y + 1));
+        ctx.fillRect(sx, sy, Math.ceil(cellW) + 0.25, Math.ceil(cellH) + 0.25);
+      }
+    }
+  }
+
+  drawContour(params);
+
+  ctx.fillStyle = "#eef6ff";
+  ctx.font = "14px ui-sans-serif, system-ui";
+  const label = shape === "car" && !carSlices ? "loading car mask..." : "z slice " + k + "   z=" + z.toFixed(3) + "   span factor=" + rawFactor.toFixed(3);
+  ctx.fillText(label, 72, 32);
+  readout.value = (shape === "car" ? "car " : "slice ") + k + " / 23";
+}
+
+sliceInput.addEventListener("input", draw);
+modeInput.addEventListener("change", draw);
+shapeInput.addEventListener("change", () => {
+  fluid = null;
+  if (shapeInput.value === "car") loadCarData();
+  draw();
+});
+playButton.addEventListener("click", () => {
+  playing = !playing;
+  playButton.textContent = playing ? "Pause" : "Play";
+});
+function animate(now) {
+  if (playing) {
+    sliceAccumulator += Math.min(0.05, (now - lastFrameTime) / 1000 || 0.016);
+    if (sliceAccumulator >= 0.22) {
+      sliceInput.value = String((Number(sliceInput.value) + 1) % NZ);
+      sliceAccumulator = 0;
+    }
+  }
+  draw();
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>

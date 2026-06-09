@@ -27,12 +27,19 @@
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
     calibrationObject: false
+    markerColor: false
+    markerMaterial: false
     markerPrefab: false
+    markerRings: false
     markerScale: false
+    markerSegments: false
     markerTemplate: false
     pulseAmount: false
     pulseHz: false
+    selectedMarkerColor: false
+    selectedScaleMultiplier: false
     surfaceLiftCm: false
+    useWindSpeedPalette: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -46,6 +53,13 @@
       markerPrefab: !<reference.ObjectPrefab> 00000000-0000-0000-0000-000000000000
       markerTemplate: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       markerScale: 0.800000
+      markerSegments: 24
+      markerRings: 14
+      markerMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      markerColor: !<Vec4> {x: 0.150000, y: 0.950000, z: 1.000000, w: 0.900000}
+      selectedMarkerColor: !<Vec4> {x: 1.000000, y: 0.720000, z: 0.180000, w: 1.000000}
+      useWindSpeedPalette: true
+      selectedScaleMultiplier: 1.850000
       pulseAmount: 0.350000
       pulseHz: 1.400000
       surfaceLiftCm: !<float> 0.000000
@@ -57,6 +71,13 @@
     - '// @input Asset.ObjectPrefab markerPrefab {"hint":"Optional prefab to instantiate per storm. Leave empty to use auto sphere markers."}'
     - '// @input SceneObject markerTemplate {"hint":"Optional template SceneObject — duplicated per storm if no prefab is supplied."}'
     - // @input float markerScale = 0.8
+    - '// @input int markerSegments = 24 {"hint":"Generated marker sphere horizontal segments."}'
+    - '// @input int markerRings = 14 {"hint":"Generated marker sphere vertical rings."}'
+    - '// @input Asset.Material markerMaterial {"hint":"Flat material for generated/selectable storm markers."}'
+    - '// @input vec4 markerColor = {0.15,0.95,1,0.9} {"hint":"Marker color for unselected weather events.", "widget":"color"}'
+    - '// @input vec4 selectedMarkerColor = {0.24,0.7,1,1} {"hint":"Theme fallback color for the selected weather event when wind speed is unavailable.", "widget":"color"}'
+    - '// @input bool useWindSpeedPalette = true {"hint":"Color selected markers from the same wind-speed scale used by the legend."}'
+    - '// @input float selectedScaleMultiplier = 1.85 {"hint":"Scale multiplier for the selected marker.", "widget":"slider", "min":1, "max":3, "step":0.05}'
     - '// @input float pulseAmount = 0.35 {"hint":"Multiplier on the pulse amplitude. 0 = static, 1 = breathing."}'
     - '// @input float pulseHz = 1.4 {"hint":"Pulse frequency in Hz."}'
     - '// @input float surfaceLiftCm {"hint":"Tiny outward lift from the globe surface, in cm. Keep low so the marker remains on the storm location.", "widget":"slider", "min":0, "max":2, "step":0.05}'

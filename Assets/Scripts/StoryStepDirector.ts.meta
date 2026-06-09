@@ -26,11 +26,14 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
+    aerodynamicsMenuOffset: false
+    aerodynamicsMenuTiltDegrees: false
+    analyticalTabletopOffset: false
+    analyticalTabletopTiltDegrees: false
+    analyticalVectorFieldOffset: false
     applyOnStart: false
     calibrateReferenceOnStart: false
     cameraRoot: false
-    carFlowDropDistance: false
-    carFlowTiltDegrees: false
     controlContentRoots: false
     gravityFieldRoot: false
     gravityFrontOffset: false
@@ -43,8 +46,8 @@
     magneticFrontOffset: false
     magneticReferenceOffset: false
     mainExperienceRenderOrder: false
+    menuRoot: false
     motionFieldRoot: false
-    motionFrontOffset: false
     resetDefaultStanceNow: false
     settleSeconds: false
     theoryVectorFrontOffset: false
@@ -57,6 +60,7 @@
     vectorFieldRoot: false
     viewPlaneMode: false
     windFrontOffset: false
+    windGlobeMenuOffset: false
     windGlobeRoot: false
     windReferenceOffset: false
   ScriptTypesHidden:
@@ -76,6 +80,7 @@
       applyOnStart: true
       initialStep: !<float> 0.000000
       cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      menuRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       controlContentRoots: true
       mainExperienceRenderOrder: !<float> 0.000000
       settleSeconds: 1.250000
@@ -90,8 +95,10 @@
       initialVectorColorMap: !<float> 9.000000
       vectorColorMapScale: !<float> 1.000000
       vectorColorMapOffset: !<float> 0.000000
-      motionFrontOffset: !<Vec3> {x: 0.000000, y: -3.000000, z: -82.000000}
       theoryVectorFrontOffset: !<Vec3> {x: -15.000000, y: -2.000000, z: -82.000000}
+      analyticalTabletopOffset: !<Vec3> {x: 0.000000, y: -38.000000, z: -72.000000}
+      analyticalVectorFieldOffset: !<Vec3> {x: 0.000000, y: 12.000000, z: -24.000000}
+      analyticalTabletopTiltDegrees: !<float> 10.000000
       theoryVectorScale: 1.050000
       gravityFrontOffset: !<Vec3> {x: 0.000000, y: -6.000000, z: -82.000000}
       magneticFrontOffset: !<Vec3> {x: 0.000000, y: -4.000000, z: -78.000000}
@@ -99,8 +106,9 @@
       gravityReferenceOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: 0.000000}
       magneticReferenceOffset: !<Vec3> {x: 0.000000, y: 7.000000, z: 0.000000}
       windReferenceOffset: !<Vec3> {x: 0.000000, y: 24.000000, z: 0.000000}
-      carFlowDropDistance: !<float> 14.000000
-      carFlowTiltDegrees: !<float> 16.000000
+      windGlobeMenuOffset: !<Vec3> {x: 0.000000, y: 10.000000, z: -8.000000}
+      aerodynamicsMenuOffset: !<Vec3> {x: 0.000000, y: -17.500000, z: -2.000000}
+      aerodynamicsMenuTiltDegrees: !<float> 0.000000
   ScriptTypes:
     -
       {}
@@ -113,6 +121,7 @@
     - '// @input bool applyOnStart {"hint":"Stage a step at startup when the director runs without the main guide."}'
     - '// @input float initialStep {"hint":"Initial step index when applyOnStart is enabled.", "widget":"slider", "min":0, "max":2, "step":1}'
     - '// @input SceneObject cameraRoot {"hint":"Optional head/camera anchor for menu-selected front placement. Empty searches for Camera Object."}'
+    - '// @input SceneObject menuRoot {"hint":"Menu root used as the base transform for analytical field placement. Empty searches for Story Chapter Guide UI."}'
     - '// @input bool controlContentRoots = true {"hint":"Enable the real content roots associated with the selected story step."}'
     - '// @input float mainExperienceRenderOrder {"hint":"Render-order floor for active field/example visuals, keeping the main experience above the story guide when they overlap.", "widget":"slider", "min":0, "max":900, "step":1}'
     - '// @input float settleSeconds = 1.25 {"hint":"Keep applying briefly after startup so other setup scripts settle first."}'
@@ -124,11 +133,13 @@
     - '// @input bool resetDefaultStanceNow {"hint":"Set true in Inspector to put the active visual back into its default front-facing stance."}'
     - '// @input float initialExampleField {"hint":"Initial real-world example when the examples step is opened at startup.", "widget":"combobox", "values":[{"label":"Gravity", "value":0}, {"label":"Magnetism", "value":1}, {"label":"Wind", "value":2}, {"label":"Aerodynamics", "value":3}]}'
     - '// @input float initialTheoryFieldMode {"hint":"Initial theory field mode when the theory step is opened at startup.", "widget":"combobox", "values":[{"label":"Expansion", "value":0}, {"label":"Contraction", "value":1}, {"label":"Curl", "value":2}, {"label":"Motion", "value":3}]}'
-    - '// @input float initialVectorColorMap = 17 {"hint":"Initial cube VectorField color map for theory modes.", "widget":"combobox", "values":[{"label":"jet", "value":13}, {"label":"viridis", "value":17}, {"label":"plasma", "value":18}]}'
+    - '// @input float initialVectorColorMap = 18 {"hint":"Initial cube VectorField color map for theory modes.", "widget":"combobox", "values":[{"label":"jet", "value":13}, {"label":"viridis", "value":17}, {"label":"plasma", "value":18}]}'
     - '// @input float vectorColorMapScale = 1 {"hint":"Color-gradient scale for cube VectorField theory modes.", "widget":"slider", "min":0.05, "max":4, "step":0.01}'
     - '// @input float vectorColorMapOffset {"hint":"Color-gradient offset for cube VectorField theory modes.", "widget":"slider", "min":-1, "max":1, "step":0.01}'
-    - '// @input vec3 motionFrontOffset = {0,0,-30} {"hint":"Camera-relative placement for the 2D motion plane."}'
     - '// @input vec3 theoryVectorFrontOffset = {0,0,-50} {"hint":"Camera-relative placement for the real VectorField in the theory chapter."}'
+    - '// @input vec3 analyticalTabletopOffset = {0,-32,18} {"hint":"Menu-relative placement for Motion Field Root in analytical modes. X = menu right, Y = menu up/down, Z = toward user from the menu plane."}'
+    - '// @input vec3 analyticalVectorFieldOffset = {0,-24,18} {"hint":"Menu-relative placement for Vector Field Examples Root in analytical modes. Separate from the motion plane because this root has a different pivot/bounds."}'
+    - '// @input float analyticalTabletopTiltDegrees = 10 {"hint":"Tilt analytical tabletop fields toward the user in degrees. 0 keeps the plane normal exactly world +Y."}'
     - '// @input float theoryVectorScale = 0.85 {"hint":"Local scale for the real VectorField when staged in theory.", "widget":"slider", "min":0.35, "max":2, "step":0.05}'
     - '// @input vec3 gravityFrontOffset = {0,-28,-82} {"hint":"Camera-relative placement for gravity when reference calibration is disabled."}'
     - '// @input vec3 magneticFrontOffset = {0,0,-78} {"hint":"Camera-relative placement for magnetism when reference calibration is disabled."}'
@@ -136,5 +147,6 @@
     - '// @input vec3 gravityReferenceOffset = {0,0,0} {"hint":"Gravity offset in calibrated plane-local space."}'
     - '// @input vec3 magneticReferenceOffset = {0,7,0} {"hint":"Magnetism offset in calibrated plane-local space."}'
     - '// @input vec3 windReferenceOffset = {0,24,0} {"hint":"Wind globe offset in calibrated plane-local space."}'
-    - '// @input float carFlowDropDistance = 14 {"hint":"Push the car-flow slice down (cm) so you look at it from above and the depth-drag handles are easy to reach."}'
-    - '// @input float carFlowTiltDegrees = 16 {"hint":"Tilt the car-flow slice back (degrees) so the front/back drag axis has on-screen height. Flip the sign if it tilts the wrong way."}'
+    - '// @input vec3 windGlobeMenuOffset = {0,10,-8} {"hint":"Menu-relative Earth Winds globe staging. X = menu right, Y = above original menu anchor, Z = menu normal; negative Z tucks behind the menu."}'
+    - '// @input vec3 aerodynamicsMenuOffset = {0,-17.5,-2} {"hint":"Menu-relative Aerodynamics staging. X = menu right, Y = below the menu, Z = menu normal; negative Z tucks behind the menu."}'
+    - '// @input float aerodynamicsMenuTiltDegrees {"hint":"Extra pitch for the menu-anchored aerodynamics field. Keep near zero when it should sit flush below the menu."}'

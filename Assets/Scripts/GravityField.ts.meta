@@ -29,7 +29,11 @@
     arrowResolution: false
     arrowScale: false
     arrowWidth: false
+    artemisCompletionMaterial: false
+    artemisCursorColor: false
+    artemisCursorMaterial: false
     artemisEarthClearance: false
+    artemisPlannedMaterial: false
     artemisTrajectoryScale: false
     earthAxialMotionEnabled: false
     earthMass: false
@@ -82,6 +86,10 @@
       artemisEarthClearance: 0.650000
       wellDepth: 1.450000
       material: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      artemisPlannedMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      artemisCompletionMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      artemisCursorMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      artemisCursorColor: !<Vec4> {x: 0.920000, y: 1.000000, z: 1.000000, w: 1.000000}
       initialStage: !<float> 2.000000
   ScriptTypes:
     -
@@ -110,4 +118,8 @@
     - '// @input float artemisEarthClearance = 0.65 {"hint":"Minimum visual gap between the Artemis II path and the visible Earth model.", "widget":"slider", "min":0, "max":1.5, "step":0.05}'
     - '// @input float wellDepth = 2.4 {"hint":"How far the scalar gravity well falls along local Y. Depth scales with body mass so Earth dominates the Moon.", "widget":"slider", "min":0.15, "max":6, "step":0.05}'
     - '// @input Asset.Material material {"hint":"Flat/toon material cloned for generated gravity meshes"}'
+    - '// @input Asset.Material artemisPlannedMaterial {"hint":"Dedicated Artemis planned dotted path material. Use a flat unlit material; do not share with other gravity visuals."}'
+    - '// @input Asset.Material artemisCompletionMaterial {"hint":"Dedicated Artemis completion material using ArtemisPathProgress.js. Exposes BaseColor, Progress, and Feather."}'
+    - '// @input Asset.Material artemisCursorMaterial {"hint":"Dedicated Artemis current-position indicator material. Use a flat unlit overlay material."}'
+    - '// @input vec4 artemisCursorColor = {0.92,1,1,1} {"hint":"Color for the Artemis current-position indicator.", "widget":"color"}'
     - '// @input float initialStage = 2 {"hint":"Standalone preview stage used when the component wakes up.", "widget":"combobox", "values":[{"label":"Bodies", "value":0}, {"label":"Arrows", "value":1}, {"label":"Field Lines", "value":2}]}'

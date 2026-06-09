@@ -1,63 +1,346 @@
-import { FLOW_PATHS } from "./FlowPaths";
+import { CAR_CFD_TIME_SERIES } from "./CarCfdTimeSeries";
+import { AIRFOIL_CFD_TIME_SERIES } from "./AirfoilCfdTimeSeries";
 
-// CarFlowStreamlines — Earth-wind-map-style streamline GEOMETRY for the baked
-// car-flow field, driven by a draggable slice. Only the CURRENT slice's
-// streamlines exist as mesh at any time; dragging along the slide axis rebuilds
-// smoothed tube-ribbon geo from that slice's baked paths (FLOW_PATHS.slices[k]).
-// The CarFlowStream shader animates a soft flowing speed ramp along the geo.
+const DEFAULT_TUBE_MATERIAL: Material = requireAsset("../OrientedTubeGlyph.mat") as Material;
+
+// CarFlowStreamlines — slice-local car-flow geometry for the baked field.
+// The fast path uses small ribbon glyphs anchored on the current slice. Full
+// streamline ribbons and old radial tubes remain as fallbacks/debug modes.
 @component
 export class CarFlowStreamlines extends BaseScriptComponent {
   @input material: Material;
+  @input
+  @widget(new ComboBoxWidget([
+    new ComboBoxItem("Airfoil CFD", 1),
+    new ComboBoxItem("Car CFD", 0),
+  ]))
+  @hint("Offline CFD dataset used by the slice renderer.")
+  dataSet: number = 1;
+  @input
+  @allowUndefined
+  @hint("Separate material for fast car-flow ribbon glyphs. Use a CarFlowRibbonGlyph shader material here.")
+  glyphMaterial: Material = DEFAULT_TUBE_MATERIAL;
+  @input
+  @widget(new ComboBoxWidget([
+    new ComboBoxItem("Ribbon Glyphs", 0),
+    new ComboBoxItem("Streamline Ribbons", 1),
+    new ComboBoxItem("Debug Tubes", 2),
+  ]))
+  renderMode: number = 0;
+
   @input('float') planeWidth: number = 24;      // local width the field X-domain maps to
   @input('float') planeHeight: number = 9.27;   // local height the field Y-domain maps to
   @input('float') ribbonWidth: number = 0.10;
+  @input('int') tubeColumns: number = 26;
+  @input('int') tubeRows: number = 11;
+  @input('float') tubeLength: number = 0.52;
+  @input('float') tubeRadius: number = 0.055;
+  @input('int') tubeRadialSegments: number = 4;
+  @input('float') tubeNormalLift: number = 0.045;
   @input('float') phaseSpeed: number = 0.4;
   @input('float') speedScaleRef: number = 1.5;
+  @input('float') tubeGlyphPulseStrength: number = 0.0;
+  @input('float') tubeGlyphTemporalBend: number = 0.0;
+  @input('bool') animateRibbonGlyphs: boolean = false;
+  @input
+  @widget(new ColorWidget())
+  @hint("Constant glyph color used when useSpeedColorMap is off.")
+  glyphColor: vec4 = new vec4(0.0, 0.95, 1.0, 1.0);
+  @input('bool')
+  @hint("Optional diagnostic mode. Off keeps all glyphs a constant color so orientation is the primary cue.")
+  useSpeedColorMap: boolean = true;
+  @input
+  @widget(new ComboBoxWidget([
+    new ComboBoxItem("jet", 13),
+    new ComboBoxItem("viridis", 17),
+    new ComboBoxItem("plasma", 18),
+  ]))
+  colorMap: number = 18;
+  @input('float') colorMapScale: number = 1.0;
+  @input('float') colorMapOffset: number = 0.0;
+  @input('bool')
+  @hint("Temporary CFD diagnostic overlay: draws the obstacle mask outline used by the baked solver.")
+  showObstacleMaskOutline: boolean = true;
+  @input('bool')
+  @hint("Suppresses glyphs whose centers fall inside the baked CFD obstacle silhouette.")
+  maskGlyphsInsideObstacle: boolean = true;
+  @input('float') obstacleMaskOutlineWidth: number = 0.055;
+  @input
+  @widget(new ColorWidget())
+  obstacleMaskOutlineColor: vec4 = new vec4(0.0, 1.0, 1.0, 0.95);
 
   // slice control — which baked Z-slice's geo is built
   @input('bool') autoScroll: boolean = false;
   @input('float') autoScrollSpeed: number = 0.2;
   @input('bool') driveFromPosition: boolean = true;
+  @input
+  @allowUndefined
+  @hint("Optional object to read slice drag from. Leave empty to use this object's transform.")
+  sliceControlObject: SceneObject;
+  @input('bool')
+  @hint("Read drag in world space so Lens Studio/parent-object drags update the active slice.")
+  driveFromWorldPosition: boolean = true;
   @input('int') axis: number = 2;
   @input('float') travel: number = 3.635;
 
   private pass: any;
   private rmv: RenderMeshVisual;
+  private glyphMaterialInstance: Material | null = null;
   private nz: number = 1;
+  private nt: number = 1;
   private builtSlice: number = -1;          // which slice the current mesh holds
+  private builtFrame: number = -1;          // which CFD time frame the current mesh holds
   private home: vec3 = new vec3(0, 0, 0);   // aligned rest position; slide is relative to this
+  private worldHome: vec3 = new vec3(0, 0, 0);
+  private worldAxisHome: vec3 = new vec3(0, 0, 1);
+  private scriptHome: vec3 = new vec3(0, 0, 0);
+  private scriptWorldHome: vec3 = new vec3(0, 0, 0);
+  private autoSliceControlObject: SceneObject | null = null;
   private readonly smoothSamplesPerSegment: number = 4;
+  private obstacleOutlineObject: SceneObject | null = null;
+  private obstacleOutlineVisual: RenderMeshVisual | null = null;
+  private obstacleOutlineMaterialInstance: Material | null = null;
+  private obstacleOutlineBuilt: boolean = false;
+  private obstacleOutlineSlice: number = -1;
+  private obstacleOutlineDataSet: number = -1;
+  private activeDataSet: number = -1;
+
+  private cfdData(): any {
+    return Math.floor(this.dataSet) === 0 ? CAR_CFD_TIME_SERIES : AIRFOIL_CFD_TIME_SERIES;
+  }
+
+  private refreshDataSetIfNeeded(): void {
+    const dataSet = Math.floor(this.dataSet) === 0 ? 0 : 1;
+    if (dataSet === this.activeDataSet) return;
+    this.activeDataSet = dataSet;
+    const data = this.cfdData();
+    this.nz = data.NZ;
+    this.nt = Math.max(1, Math.floor(data.NT || 1));
+    this.builtSlice = -1;
+    this.builtFrame = -1;
+    this.obstacleOutlineBuilt = false;
+  }
 
   onAwake(): void {
-    this.nz = FLOW_PATHS.NZ;
-    this.home = this.getTransform().getLocalPosition();
+    this.refreshDataSetIfNeeded();
+    this.captureSliceHome();
+    this.createScriptApi();
 
     let rmv = this.sceneObject.getComponent("Component.RenderMeshVisual") as RenderMeshVisual;
     if (!rmv) rmv = this.sceneObject.createComponent("Component.RenderMeshVisual") as RenderMeshVisual;
     this.rmv = rmv;
-    if (this.material) {
-      this.rmv.mainMaterial = this.material;
-      this.pass = this.material.mainPass as any;
-      this.pass.PhaseSpeed = this.phaseSpeed;
-    }
+    this.applyMaterialForMode();
 
     // build the starting slice so something shows before the first drag
-    this.buildSlice(Math.round(0.5 * (this.nz - 1)));
-    print("[CarFlowStreamlines] ready, " + this.nz + " slices (geo rebuilt on slice change)");
+    const startingSlice = Math.round(0.5 * (this.nz - 1));
+    this.buildSlice(startingSlice, this.currentFrameIndex());
+    this.updateObstacleMaskOutline(startingSlice);
+    print("[CarFlowStreamlines] ready, " + this.nz + " slices x " + this.nt + " CFD time frames");
     this.createEvent('UpdateEvent').bind(() => this.tick());
   }
 
+  private createScriptApi(): void {
+    const self = this;
+    (this as any).windApi = {
+      sampleTubeGlyphField: (x: number, z: number, time?: number) => self.sampleTubeGlyphField(x, z, time),
+      refresh: () => self.refresh(),
+      getCurrentSlice: () => self.sliceFromControl(),
+      getCurrentSlice01: () => self.slice01FromControl(),
+      refreshSliceHome: () => self.captureSliceHome(),
+      setSlice01: (value: number) => self.setSlice01(value),
+      setDataSet: (value: number | string) => self.setDataSet(value),
+      setCarDataSet: () => self.setDataSet(0),
+      setAirfoilDataSet: () => self.setDataSet(1),
+      refreshObstacleContour: () => self.refreshObstacleContour(),
+      rebuildObstacleContour: () => self.refreshObstacleContour(),
+      setFlowSpeedNormalized: (value: number) => self.setFlowSpeedNormalized(value),
+      setVectorDensityNormalized: (value: number) => self.setVectorDensityNormalized(value),
+      getTubeGlyphFieldState: () => self.getTubeGlyphFieldState(),
+      getTubeGlyphFieldSignature: () => self.getTubeGlyphFieldSignature(),
+      setRenderMode: (mode: number | string) => self.setRenderMode(mode),
+      setTubeMode: () => self.setRenderMode(0),
+      setRibbonGlyphMode: () => self.setRenderMode(0),
+      setRibbonMode: () => self.setRenderMode(1),
+      setColorMap: (value: number | string) => self.setColorMap(value),
+      setPalette: (value: number | string) => self.setColorMap(value),
+      setColorMapScale: (value: number) => self.setColorMapScale(value),
+      setGradientScale: (value: number) => self.setColorMapScale(value),
+      setColorMapOffset: (value: number) => self.setColorMapOffset(value),
+      setGradientOffset: (value: number) => self.setColorMapOffset(value),
+      setUseSpeedColorMap: (enabled: boolean) => self.setUseSpeedColorMap(enabled),
+      setGlyphColor: (color: vec4) => self.setGlyphColor(color),
+      getColorMap: () => self.colorMap,
+      getColorMapScale: () => self.colorMapScale,
+      getColorMapOffset: () => self.colorMapOffset,
+    };
+  }
+
+  public refresh(): void {
+    this.captureSliceHome();
+    this.builtSlice = -1;
+    this.builtFrame = -1;
+    this.obstacleOutlineBuilt = false;
+    const slice = this.sliceFromControl();
+    this.buildSlice(slice, this.currentFrameIndex());
+    this.updateObstacleMaskOutline(slice);
+  }
+
+  public setDataSet(value: number | string): void {
+    let next = 1;
+    if (typeof value === "number") {
+      next = Math.floor(value) === 0 ? 0 : 1;
+    } else {
+      const key = ("" + value).toLowerCase();
+      next = key === "car" || key === "car_cfd" || key === "baked_car" || key === "0" ? 0 : 1;
+    }
+    const currentSlice01 = this.slice01FromControl();
+    if (Math.floor(this.dataSet) === next && this.activeDataSet === next) {
+      this.refreshObstacleContour();
+      return;
+    }
+    this.dataSet = next;
+    this.refreshDataSetIfNeeded();
+    this.setSlice01(currentSlice01);
+    this.obstacleOutlineBuilt = false;
+    this.refresh();
+  }
+
+  public refreshObstacleContour(): void {
+    this.obstacleOutlineBuilt = false;
+    this.updateObstacleMaskOutline(this.sliceFromControl());
+  }
+
+  public setFlowSpeedNormalized(value: number): void {
+    if (!isFinite(value)) return;
+    const t = this.clamp(value, 0.0, 1.0);
+    this.phaseSpeed = 0.05 + t * 0.75;
+    this.autoScrollSpeed = 0.03 + t * 0.22;
+  }
+
+  public setVectorDensityNormalized(value: number): void {
+    if (!isFinite(value)) return;
+    const t = this.clamp(value, 0.0, 1.0);
+    this.tubeColumns = Math.floor(18 + t * 38);
+    this.tubeRows = Math.floor(8 + t * 18);
+    this.rebuildCurrentSlice();
+  }
+
+  public setColorMap(value: number | string): void {
+    this.colorMap = this.normalizeColorMap(value);
+    this.rebuildCurrentSlice();
+  }
+
+  public setColorMapScale(value: number): void {
+    if (isNaN(value)) return;
+    this.colorMapScale = this.clamp(value, -8.0, 8.0);
+    this.rebuildCurrentSlice();
+  }
+
+  public setColorMapOffset(value: number): void {
+    if (isNaN(value)) return;
+    this.colorMapOffset = this.clamp(value, -2.0, 2.0);
+    this.rebuildCurrentSlice();
+  }
+
+  public setUseSpeedColorMap(enabled: boolean): void {
+    this.useSpeedColorMap = !!enabled;
+    this.rebuildCurrentSlice();
+  }
+
+  public setGlyphColor(color: vec4): void {
+    if (!color) return;
+    this.glyphColor = color;
+    this.rebuildCurrentSlice();
+  }
+
+  private rebuildCurrentSlice(): void {
+    this.builtSlice = -1;
+    this.builtFrame = -1;
+    this.buildSlice(this.sliceFromControl(), this.currentFrameIndex());
+  }
+
+  private normalizeColorMap(value: number | string): number {
+    if (typeof value === "string") {
+      const key = value.toLowerCase();
+      if (key.indexOf("jet") >= 0) return 13;
+      if (key.indexOf("plasma") >= 0) return 18;
+      if (key.indexOf("aero") >= 0 || key.indexOf("cyan") >= 0 || key.indexOf("teal") >= 0) return 19;
+      return 17;
+    }
+    const map = Math.floor(value);
+    if (map === 13 || map === 17 || map === 18 || map === 19) return map;
+    return 18;
+  }
+
+  public setRenderMode(mode: number | string): void {
+    if (typeof mode === "string") {
+      const key = mode.toLowerCase();
+      if (key === "tube" || key === "tubes" || key === "debug_tubes") this.renderMode = 2;
+      else if (key === "streamline" || key === "streamlines" || key === "ribbon" || key === "ribbons" || key === "legacy") this.renderMode = 1;
+      else this.renderMode = 0;
+    } else {
+      this.renderMode = Math.max(0, Math.min(2, Math.floor(mode)));
+    }
+    this.applyMaterialForMode();
+    this.builtSlice = -1;
+    this.builtFrame = -1;
+    this.buildSlice(this.sliceFromControl(), this.currentFrameIndex());
+  }
+
+  public getTubeGlyphFieldState(): { slice: number, slice01: number, planeWidth: number, planeDepth: number, plane: string, phase: number, phaseSpeed: number } {
+    const slice = this.sliceFromControl();
+    return {
+      slice: slice,
+      slice01: this.nz <= 1 ? 0.0 : slice / (this.nz - 1),
+      planeWidth: this.planeWidth,
+      planeDepth: this.planeHeight,
+      plane: "XY",
+      phase: getTime() * this.phaseSpeed,
+      phaseSpeed: this.phaseSpeed,
+    };
+  }
+
+  public getTubeGlyphFieldSignature(): string {
+    const state = this.getTubeGlyphFieldState();
+    return [
+      state.slice,
+      state.planeWidth.toFixed(2),
+      state.planeDepth.toFixed(2),
+      this.currentFrameIndex(),
+      this.phaseSpeed.toFixed(3),
+      this.speedScaleRef.toFixed(3),
+    ].join(":");
+  }
+
+  public sampleTubeGlyphField(x: number, z: number, time?: number): { x: number, z: number, speed: number, intensity: number } {
+    const D = this.cfdData();
+    const k = Math.max(0, Math.min(D.NZ - 1, this.sliceFromControl()));
+    return this.sampleSliceVector(k, x, z, time === undefined ? getTime() : time, true);
+  }
+
   private tick(): void {
-    if (!this.pass) return;
+    this.refreshDataSetIfNeeded();
+    this.applyMaterialForMode();
     const k = this.sliceFromControl();
-    if (k !== this.builtSlice) this.buildSlice(k);   // update the geo when the slice changes
-    this.pass.Time = getTime();
-    this.pass.PhaseSpeed = this.phaseSpeed;
+    const frame = this.currentFrameIndex();
+    if (k !== this.builtSlice || frame !== this.builtFrame) this.buildSlice(k, frame);
+    this.updateObstacleMaskOutline(k);
+    this.updateObstacleMaskOutlineVisibility();
+    if (this.pass) {
+      try { this.pass.Time = getTime(); } catch (e) {}
+      try { this.pass.PhaseSpeed = this.phaseSpeed; } catch (e) {}
+      try { this.pass.PulseStrength = this.animateRibbonGlyphs ? this.tubeGlyphPulseStrength : 0.0; } catch (e) {}
+      try { this.pass.TemporalBend = this.animateRibbonGlyphs ? this.tubeGlyphTemporalBend : 0.0; } catch (e) {}
+    }
   }
 
   // Resolve the active slice index from auto-scroll or the draggable position,
   // keeping the object locked to its slide axis through home.
   private sliceFromControl(): number {
+    return Math.max(0, Math.min(this.nz - 1, Math.round(this.slice01FromControl() * (this.nz - 1))));
+  }
+
+  private slice01FromControl(): number {
     let s = 0.5;
     const half = this.travel * 0.5;
     const h = this.home;
@@ -67,18 +350,180 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       this.setSlide(h, c);
       s = c / this.travel + 0.5;
     } else if (this.driveFromPosition) {
-      const p = this.getTransform().getLocalPosition();
-      let c = this.axis === 0 ? p.x - h.x : this.axis === 1 ? p.y - h.y : p.z - h.z;
+      let c = this.resolveControlOffset();
       c = Math.max(-half, Math.min(half, c));
-      this.setSlide(h, c);
+      if (!this.driveFromWorldPosition) this.setSlide(h, c);
       s = c / this.travel + 0.5;
     }
-    return Math.max(0, Math.min(this.nz - 1, Math.round(s * (this.nz - 1))));
+    return this.clamp(s, 0.0, 1.0);
   }
 
-  // Build ribbon geo for ONE slice's streamlines (FLOW_PATHS.slices[k]).
-  private buildSlice(k: number): void {
-    const D = FLOW_PATHS;
+  private setSlice01(value: number): void {
+    const t = this.clamp(value, 0.0, 1.0);
+    const c = (t - 0.5) * this.travel;
+    if (this.driveFromWorldPosition) {
+      const control = this.sliceControl();
+      const target = this.worldHome.add(this.worldAxisHome.uniformScale(c));
+      control.getTransform().setWorldPosition(target);
+    } else {
+      this.setSlide(this.home, c);
+    }
+    this.rebuildCurrentSlice();
+  }
+
+  private captureSliceHome(): void {
+    const control = this.sliceControl();
+    this.home = control.getTransform().getLocalPosition();
+    this.worldHome = control.getTransform().getWorldPosition();
+    const rotation = control.getTransform().getWorldRotation();
+    this.worldAxisHome = rotation.multiplyVec3(this.localAxisVector()).normalize();
+    this.scriptHome = this.sceneObject.getTransform().getLocalPosition();
+    this.scriptWorldHome = this.sceneObject.getTransform().getWorldPosition();
+  }
+
+  private sliceControl(): SceneObject {
+    if (this.sliceControlObject) return this.sliceControlObject;
+    if (!this.autoSliceControlObject) {
+      this.autoSliceControlObject = this.findObjectByNameInTree(this.sceneObject, "Flow Slice Gizmo") ||
+        this.findObjectByNameInTree(this.sceneObject, "FlowSliceGizmo");
+    }
+    return this.autoSliceControlObject || this.sceneObject;
+  }
+
+  private findObjectByNameInTree(root: SceneObject | null, name: string): SceneObject | null {
+    if (!root) return null;
+    if (root.name === name) return root;
+    for (let i = 0; i < root.getChildrenCount(); i++) {
+      const found = this.findObjectByNameInTree(root.getChild(i), name);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private controlLocalOffset(): number {
+    const p = this.sliceControl().getTransform().getLocalPosition();
+    const h = this.home;
+    return this.axis === 0 ? p.x - h.x : this.axis === 1 ? p.y - h.y : p.z - h.z;
+  }
+
+  private controlWorldOffset(): number {
+    const p = this.sliceControl().getTransform().getWorldPosition();
+    const d = p.sub(this.worldHome);
+    return d.dot(this.worldAxisHome);
+  }
+
+  private scriptLocalOffset(): number {
+    const p = this.sceneObject.getTransform().getLocalPosition();
+    const h = this.scriptHome;
+    return this.axis === 0 ? p.x - h.x : this.axis === 1 ? p.y - h.y : p.z - h.z;
+  }
+
+  private scriptWorldAxisOffset(): number {
+    const p = this.sceneObject.getTransform().getWorldPosition();
+    return p.sub(this.scriptWorldHome).dot(this.worldAxisHome);
+  }
+
+  private scriptWorldDepthOffset(): number {
+    const p = this.sceneObject.getTransform().getWorldPosition();
+    return p.z - this.scriptWorldHome.z;
+  }
+
+  private controlWorldDepthOffset(): number {
+    const p = this.sliceControl().getTransform().getWorldPosition();
+    return p.z - this.worldHome.z;
+  }
+
+  private resolveControlOffset(): number {
+    if (!this.driveFromWorldPosition) return this.controlLocalOffset();
+    const candidates = [
+      this.controlWorldOffset(),
+      this.controlLocalOffset(),
+      this.scriptWorldAxisOffset(),
+      this.scriptLocalOffset(),
+      this.controlWorldDepthOffset(),
+      this.scriptWorldDepthOffset(),
+    ];
+    let best = 0.0;
+    for (let i = 0; i < candidates.length; i++) {
+      const v = candidates[i];
+      if (isNaN(v)) continue;
+      if (Math.abs(v) > Math.abs(best)) best = v;
+    }
+    return best;
+  }
+
+  private localAxisVector(): vec3 {
+    if (this.axis === 0) return new vec3(1.0, 0.0, 0.0);
+    if (this.axis === 1) return new vec3(0.0, 1.0, 0.0);
+    return new vec3(0.0, 0.0, 1.0);
+  }
+
+  // Build geo for ONE slice. The primary path is ribbon glyphs: 4 verts per
+  // sample, no caps, no per-frame rebuild, and still aligned to the slice data.
+  private buildSlice(k: number, frame: number): void {
+    if (this.isDebugTubeMode()) {
+      this.buildTubeSlice(k, frame);
+    } else if (this.isStreamlineRibbonMode()) {
+      this.buildRibbonSlice(k, frame);
+    } else {
+      this.buildRibbonGlyphSlice(k, frame);
+    }
+  }
+
+  private buildRibbonGlyphSlice(k: number, frame: number): void {
+    const cols = Math.max(3, Math.floor(this.tubeColumns));
+    const rows = Math.max(3, Math.floor(this.tubeRows));
+    const hw = this.planeWidth * 0.5;
+    const hh = this.planeHeight * 0.5;
+    const mb = new MeshBuilder([
+      { name: "position", components: 3 },
+      { name: "normal", components: 3 },
+      { name: "texture0", components: 2 },
+      { name: "texture1", components: 2 },
+      { name: "texture2", components: 2 },
+    ]);
+    mb.topology = MeshTopology.Triangles;
+    mb.indexType = MeshIndexType.UInt16;
+
+    const spacing = Math.min(this.planeWidth / Math.max(1, cols - 1), this.planeHeight / Math.max(1, rows - 1));
+    const length = Math.max(0.08, Math.min(this.tubeLength, spacing * 0.88));
+    const width = Math.max(0.018, Math.min(this.tubeRadius * 1.6, spacing * 0.22));
+    const time = getTime();
+    let glyphCount = 0;
+
+    for (let row = 0; row < rows; row++) {
+      const y = rows === 1 ? 0.0 : -hh + (row / (rows - 1)) * this.planeHeight;
+      for (let col = 0; col < cols; col++) {
+        const x = cols === 1 ? 0.0 : -hw + (col / (cols - 1)) * this.planeWidth;
+        if (this.maskGlyphsInsideObstacle && this.isInsideObstaclePlane(k, x, y)) continue;
+        const sample = this.sampleSliceVectorAtFrame(k, frame, x, y, time, false);
+        if (sample.speed < 0.018) continue;
+        const waveCoord = (col / Math.max(1, cols - 1)) * 2.4 + (row / Math.max(1, rows - 1)) * 0.55;
+        const dirX = sample.x / sample.speed;
+        const dirY = sample.z / sample.speed;
+        const len = length * this.clamp(0.74 + sample.intensity * 0.42, 0.64, 1.22);
+        const color = this.colorForValue(sample.intensity);
+        this.appendXYRibbonGlyph(mb, x, y, dirX, dirY, len, width, color, waveCoord);
+        glyphCount++;
+      }
+    }
+
+    if (glyphCount > 0) {
+      mb.updateMesh();
+      this.rmv.mesh = mb.getMesh();
+      try { this.rmv.renderOrder = 690; } catch (e) {}
+      this.rmv.enabled = true;
+    } else {
+      print("[CarFlowStreamlines] ribbon glyph slice " + k + " produced no visible glyphs; falling back to streamline ribbons");
+      this.buildRibbonSlice(k, frame);
+      return;
+    }
+    this.builtSlice = k;
+    this.builtFrame = frame;
+  }
+
+  private buildRibbonSlice(k: number, frame: number): void {
+    const D = this.cfdData();
     const N = D.N;
     const X0 = D.X0, X1 = D.X1, Y0 = D.Y0, Y1 = D.Y1;
     const mapX = (x: number) => ((x - X0) / (X1 - X0)) * this.planeWidth - this.planeWidth * 0.5;
@@ -98,7 +543,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     const verts: number[] = [];
     const idx: number[] = [];
     let vbase = 0;
-    const slice = D.slices[k];
+    const slice = this.slicePaths(k, frame);
     for (let t = 0; t < N; t++) {
       const ln = slice[t]; const xs = ln.x, ys = ln.y, sp = ln.sp;
       const phase = (t * 0.6180339887) % 1.0;
@@ -127,6 +572,570 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     mb.updateMesh();
     this.rmv.mesh = mb.getMesh();
     this.builtSlice = k;
+    this.builtFrame = frame;
+  }
+
+  private buildTubeSlice(k: number, frame: number): void {
+    const cols = Math.max(3, Math.floor(this.tubeColumns));
+    const rows = Math.max(3, Math.floor(this.tubeRows));
+    const hw = this.planeWidth * 0.5;
+    const hh = this.planeHeight * 0.5;
+    const mb = new MeshBuilder([
+      { name: "position", components: 3 },
+      { name: "normal", components: 3 },
+      { name: "texture0", components: 2 },
+      { name: "texture1", components: 2 },
+      { name: "texture2", components: 2 },
+    ]);
+    mb.topology = MeshTopology.Triangles;
+    mb.indexType = MeshIndexType.UInt16;
+
+    const spacing = Math.min(this.planeWidth / Math.max(1, cols - 1), this.planeHeight / Math.max(1, rows - 1));
+    const baseLength = Math.max(0.05, Math.min(this.tubeLength, spacing * 0.82));
+    const radius = Math.max(0.006, Math.min(this.tubeRadius, spacing * 0.18));
+    const time = getTime();
+
+    for (let row = 0; row < rows; row++) {
+      const y = rows === 1 ? 0.0 : -hh + (row / (rows - 1)) * this.planeHeight;
+      for (let col = 0; col < cols; col++) {
+        const x = cols === 1 ? 0.0 : -hw + (col / (cols - 1)) * this.planeWidth;
+        if (this.maskGlyphsInsideObstacle && this.isInsideObstaclePlane(k, x, y)) continue;
+        const sample = this.sampleSliceVectorAtFrame(k, frame, x, y, time, true);
+        if (sample.speed < 0.01) continue;
+        const len = baseLength * this.clamp(0.64 + sample.intensity * 0.46, 0.58, 1.18);
+        const color = this.colorForValue(sample.intensity);
+        this.appendXYTube(mb, x, y, sample.x / sample.speed, sample.z / sample.speed, len, radius, color);
+      }
+    }
+
+    mb.updateMesh();
+    this.rmv.mesh = mb.getMesh();
+    this.builtSlice = k;
+    this.builtFrame = frame;
+  }
+
+  private updateObstacleMaskOutline(sliceIndex: number): void {
+    const dataSet = Math.floor(this.dataSet) === 0 ? 0 : 1;
+    if (this.obstacleOutlineBuilt && this.obstacleOutlineSlice === sliceIndex && this.obstacleOutlineDataSet === dataSet) {
+      this.updateObstacleMaskOutlineVisibility();
+      return;
+    }
+
+    const D = this.cfdData();
+    const obstacle = D.obstacle;
+    const slice = this.obstacleSlice(sliceIndex);
+    const segments = slice && slice.outlineSegments ? slice.outlineSegments : (obstacle ? obstacle.outlineSegments : null);
+    if (!segments || segments.length === 0) {
+      this.obstacleOutlineBuilt = true;
+      this.obstacleOutlineSlice = sliceIndex;
+      this.obstacleOutlineDataSet = dataSet;
+      if (this.obstacleOutlineVisual) this.obstacleOutlineVisual.enabled = false;
+      return;
+    }
+
+    const visual = this.ensureObstacleOutlineVisual();
+    if (!visual) return;
+
+    const mb = new MeshBuilder([
+      { name: "position", components: 3 },
+      { name: "normal", components: 3 },
+      { name: "texture0", components: 2 },
+      { name: "texture1", components: 2 },
+      { name: "texture2", components: 2 },
+    ]);
+    mb.topology = MeshTopology.Triangles;
+    mb.indexType = MeshIndexType.UInt16;
+
+    const width = Math.max(0.004, this.obstacleMaskOutlineWidth);
+    const color = this.sanitizeColor(this.obstacleMaskOutlineColor);
+    for (let i = 0; i < segments.length; i++) {
+      const s = segments[i];
+      if (!s || s.length < 4) continue;
+      this.appendXYSegmentQuad(
+        mb,
+        this.dataToPlaneX(s[0]),
+        this.dataToPlaneY(s[1]),
+        this.dataToPlaneX(s[2]),
+        this.dataToPlaneY(s[3]),
+        width,
+        Math.max(this.tubeNormalLift + 0.04, 0.14),
+        color
+      );
+    }
+
+    mb.updateMesh();
+    visual.mesh = mb.getMesh();
+    try { visual.renderOrder = 704; } catch (e) {}
+    this.obstacleOutlineBuilt = true;
+    this.obstacleOutlineSlice = sliceIndex;
+    this.obstacleOutlineDataSet = dataSet;
+    this.updateObstacleMaskOutlineVisibility();
+  }
+
+  private updateObstacleMaskOutlineVisibility(): void {
+    if (this.obstacleOutlineVisual) {
+      this.obstacleOutlineVisual.enabled = !!this.showObstacleMaskOutline;
+    }
+    if (this.obstacleOutlineObject) {
+      this.obstacleOutlineObject.enabled = !!this.showObstacleMaskOutline;
+    }
+  }
+
+  private ensureObstacleOutlineVisual(): RenderMeshVisual | null {
+    if (!this.obstacleOutlineObject) {
+      this.obstacleOutlineObject = global.scene.createSceneObject("__CfdObstacleMaskOutline");
+      this.obstacleOutlineObject.setParent(this.sceneObject);
+      this.obstacleOutlineObject.getTransform().setLocalPosition(new vec3(0, 0, 0));
+      this.obstacleOutlineObject.getTransform().setLocalRotation(quat.quatIdentity());
+      this.obstacleOutlineObject.getTransform().setLocalScale(new vec3(1, 1, 1));
+    }
+    if (!this.obstacleOutlineVisual) {
+      this.obstacleOutlineVisual = this.obstacleOutlineObject.createComponent("Component.RenderMeshVisual") as RenderMeshVisual;
+    }
+    const material = this.getObstacleOutlineMaterialInstance();
+    if (material) {
+      this.obstacleOutlineVisual.mainMaterial = material;
+      this.configureOverlayPass(material.mainPass as any);
+    }
+    return this.obstacleOutlineVisual;
+  }
+
+  private getObstacleOutlineMaterialInstance(): Material | null {
+    if (!this.obstacleOutlineMaterialInstance) {
+      const source = this.glyphMaterial || DEFAULT_TUBE_MATERIAL;
+      try {
+        this.obstacleOutlineMaterialInstance = source.clone();
+      } catch (e) {
+        this.obstacleOutlineMaterialInstance = source;
+      }
+    }
+    return this.obstacleOutlineMaterialInstance;
+  }
+
+  private configureOverlayPass(pass: any): void {
+    if (!pass) return;
+    try { pass.depthTest = false; } catch (e) {}
+    try { pass.DepthTest = false; } catch (e) {}
+    try { pass.depthWrite = false; } catch (e) {}
+    try { pass.DepthWrite = false; } catch (e) {}
+    try { pass.twoSided = true; } catch (e) {}
+    try { pass.TwoSided = true; } catch (e) {}
+    try { pass.blendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+    try { pass.BlendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+  }
+
+  private isInsideObstaclePlane(sliceIndex: number, x: number, y: number): boolean {
+    return this.isInsideObstacleData(sliceIndex, this.planeToDataX(x), this.planeToDataY(y));
+  }
+
+  private isInsideObstacleData(sliceIndex: number, x: number, y: number): boolean {
+    const slice = this.obstacleSlice(sliceIndex);
+    if (slice && slice.maskRows) {
+      const D = this.cfdData();
+      const nx = Math.max(1, Math.floor(D.NX || 96));
+      const ny = Math.max(1, Math.floor(D.NY || 40));
+      const gx = Math.max(0, Math.min(nx - 1, Math.floor(((x - D.X0) / Math.max(0.0001, D.X1 - D.X0)) * nx)));
+      const gy = Math.max(0, Math.min(ny - 1, Math.floor(((D.Y1 - y) / Math.max(0.0001, D.Y1 - D.Y0)) * ny)));
+      const row = slice.maskRows[gy];
+      return row && row.charAt(gx) === "1";
+    }
+
+    const obstacle = this.cfdData().obstacle;
+    const shapes = obstacle ? obstacle.shapes : null;
+    if (!shapes) return false;
+    for (let i = 0; i < shapes.length; i++) {
+      const shape = shapes[i];
+      if (!shape) continue;
+      if (shape.type === "rect") {
+        const x0 = Math.min(shape.x0, shape.x1);
+        const x1 = Math.max(shape.x0, shape.x1);
+        const y0 = Math.min(shape.y0, shape.y1);
+        const y1 = Math.max(shape.y0, shape.y1);
+        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) return true;
+      } else if (shape.type === "ellipse") {
+        const rx = Math.max(0.0001, Math.abs(shape.rx));
+        const ry = Math.max(0.0001, Math.abs(shape.ry));
+        const qx = (x - shape.cx) / rx;
+        const qy = (y - shape.cy) / ry;
+        if (qx * qx + qy * qy <= 1.0) return true;
+      }
+    }
+    return false;
+  }
+
+  private obstacleSlice(sliceIndex: number): any {
+    const obstacle = this.cfdData().obstacle;
+    if (!obstacle || !obstacle.slices || obstacle.slices.length === 0) return null;
+    const k = Math.max(0, Math.min(obstacle.slices.length - 1, Math.floor(sliceIndex)));
+    return obstacle.slices[k];
+  }
+
+  private planeToDataX(x: number): number {
+    const D = this.cfdData();
+    return D.X0 + ((x / Math.max(0.0001, this.planeWidth)) + 0.5) * (D.X1 - D.X0);
+  }
+
+  private planeToDataY(y: number): number {
+    const D = this.cfdData();
+    return D.Y0 + ((y / Math.max(0.0001, this.planeHeight)) + 0.5) * (D.Y1 - D.Y0);
+  }
+
+  private dataToPlaneX(x: number): number {
+    const D = this.cfdData();
+    return ((x - D.X0) / Math.max(0.0001, D.X1 - D.X0)) * this.planeWidth - this.planeWidth * 0.5;
+  }
+
+  private dataToPlaneY(y: number): number {
+    const D = this.cfdData();
+    return ((y - D.Y0) / Math.max(0.0001, D.Y1 - D.Y0)) * this.planeHeight - this.planeHeight * 0.5;
+  }
+
+  private currentFrameIndex(): number {
+    return this.frameIndexForTime(getTime());
+  }
+
+  private frameIndexForTime(time: number): number {
+    const D = this.cfdData();
+    const nt = Math.max(1, Math.floor(D.NT || (D.frames ? D.frames.length : 1)));
+    if (nt <= 1) return 0;
+    const fps = Math.max(0.001, D.fps || (D.secondsPerFrame ? 1.0 / D.secondsPerFrame : 8.0));
+    return Math.floor(Math.max(0.0, time) * fps) % nt;
+  }
+
+  private slicePaths(k: number, frame: number): any[] {
+    const D = this.cfdData();
+    const sliceIndex = Math.max(0, Math.min(Math.max(1, D.NZ) - 1, k));
+    if (D.frames && D.frames.length > 0) {
+      const frameIndex = Math.max(0, Math.min(D.frames.length - 1, frame));
+      const frameSlices = D.frames[frameIndex];
+      if (frameSlices && frameSlices[sliceIndex]) return frameSlices[sliceIndex];
+    }
+    if (D.slices && D.slices[sliceIndex]) return D.slices[sliceIndex];
+    return [];
+  }
+
+  private sampleSliceVector(k: number, x: number, y: number, time: number, animated: boolean): { x: number, z: number, speed: number, intensity: number } {
+    return this.sampleSliceVectorAtFrame(k, this.frameIndexForTime(time), x, y, time, animated);
+  }
+
+  private sampleSliceVectorAtFrame(k: number, frame: number, x: number, y: number, time: number, animated: boolean): { x: number, z: number, speed: number, intensity: number } {
+    const D = this.cfdData();
+    const X0 = D.X0, X1 = D.X1, Y0 = D.Y0, Y1 = D.Y1;
+    const mapX = (vx: number) => ((vx - X0) / (X1 - X0)) * this.planeWidth - this.planeWidth * 0.5;
+    const mapY = (vy: number) => ((vy - Y0) / (Y1 - Y0)) * this.planeHeight - this.planeHeight * 0.5;
+    const slice = this.slicePaths(k, frame);
+    let bestDist = 999999.0;
+    let bestDx = 1.0;
+    let bestDy = 0.0;
+    let bestSpeed = 0.0;
+    let bestPathT = 0.0;
+    let bestPhase = 0.0;
+
+    for (let lineIndex = 0; lineIndex < D.N; lineIndex++) {
+      const ln = slice[lineIndex];
+      const xs = ln.x, ys = ln.y, sp = ln.sp;
+      const templatePhase = (lineIndex * 0.6180339887) % 1.0;
+      const stride = animated ? 1 : 2;
+      for (let i = 0; i < xs.length; i += stride) {
+        const px = mapX(xs[i]);
+        const py = mapY(ys[i]);
+        const dxp = px - x;
+        const dyp = py - y;
+        const d2 = dxp * dxp + dyp * dyp;
+        if (d2 < bestDist) {
+          const i0 = Math.max(0, i - stride);
+          const i1 = Math.min(xs.length - 1, i + stride);
+          let tx = mapX(xs[i1]) - mapX(xs[i0]);
+          let ty = mapY(ys[i1]) - mapY(ys[i0]);
+          const tl = Math.hypot(tx, ty) || 1.0;
+          tx /= tl;
+          ty /= tl;
+          bestDist = d2;
+          bestDx = tx;
+          bestDy = ty;
+          bestSpeed = sp[i];
+          bestPathT = i / Math.max(1, xs.length - 1);
+          bestPhase = templatePhase;
+        }
+      }
+    }
+
+    let gain = 1.0;
+    let bend = 0.0;
+    if (animated) {
+      const phase = this.fract(time * this.phaseSpeed + bestPhase);
+      const pf = 1.0 - this.clamp(bestPathT, 0.0, 1.0);
+      const band = this.fract(pf * 3.15 - phase + 1.0);
+      const bandDist = Math.abs(band - 0.5) * 2.0;
+      const pulse = 1.0 - this.smoothstepRange(0.10, 0.92, bandDist);
+      const glint = 1.0 - this.smoothstepRange(0.00, 0.20, bandDist);
+      gain = 1.0 + (pulse * 0.72 + glint * 0.28) * Math.max(0.0, this.tubeGlyphPulseStrength);
+      bend = (pulse - 0.5) * this.tubeGlyphTemporalBend;
+    }
+
+    const nx = -bestDy;
+    const ny = bestDx;
+    const vx = bestDx + nx * bend;
+    const vy = bestDy + ny * bend;
+    const vl = Math.hypot(vx, vy) || 1.0;
+    const speed = Math.max(0.001, bestSpeed * gain);
+    const intensity = this.clamp(speed / Math.max(0.001, this.speedScaleRef), 0.0, 1.0);
+    return { x: (vx / vl) * speed, z: (vy / vl) * speed, speed: speed, intensity: intensity };
+  }
+
+  private appendXYTube(mb: MeshBuilder, x: number, y: number, dx: number, dy: number, length: number, radius: number, color: vec4): void {
+    const radial = Math.max(4, Math.min(16, Math.floor(this.tubeRadialSegments)));
+    const start = mb.getVerticesCount();
+    const px = -dy;
+    const py = dx;
+    const half = length * 0.5;
+    const ax = x - dx * half;
+    const ay = y - dy * half;
+    const bx = x + dx * half;
+    const by = y + dy * half;
+
+    for (let ring = 0; ring < 2; ring++) {
+      const cx = ring === 0 ? ax : bx;
+      const cy = ring === 0 ? ay : by;
+      const v = ring;
+      for (let i = 0; i < radial; i++) {
+        const a = (i / radial) * Math.PI * 2.0;
+        const ca = Math.cos(a);
+        const sa = Math.sin(a);
+        const planeOffset = ca * radius;
+        const normalOffset = sa * radius;
+        mb.appendVerticesInterleaved([
+          cx + px * planeOffset,
+          cy + py * planeOffset,
+          this.tubeNormalLift + normalOffset,
+          px * ca,
+          py * ca,
+          sa,
+          i / radial, v,
+          color.x, color.y,
+          color.z, color.w,
+        ]);
+      }
+    }
+
+    for (let i = 0; i < radial; i++) {
+      const a = start + i;
+      const b = start + ((i + 1) % radial);
+      const c = start + radial + i;
+      const d = start + radial + ((i + 1) % radial);
+      mb.appendIndices([a, b, c, b, d, c]);
+    }
+
+    const capA = mb.getVerticesCount();
+    mb.appendVerticesInterleaved([ax, ay, this.tubeNormalLift, -dx, -dy, 0.0, 0.5, 0.0, color.x, color.y, color.z, color.w]);
+    const capB = mb.getVerticesCount();
+    mb.appendVerticesInterleaved([bx, by, this.tubeNormalLift, dx, dy, 0.0, 0.5, 1.0, color.x, color.y, color.z, color.w]);
+    for (let i = 0; i < radial; i++) {
+      const a = start + i;
+      const b = start + ((i + 1) % radial);
+      const c = start + radial + i;
+      const d = start + radial + ((i + 1) % radial);
+      mb.appendIndices([capA, a, b, capB, d, c]);
+    }
+  }
+
+  private appendXYRibbonGlyph(mb: MeshBuilder, x: number, y: number, dx: number, dy: number, length: number, width: number, color: vec4, phase: number): void {
+    const px = -dy;
+    const py = dx;
+    const halfLength = length * 0.5;
+    const halfWidth = width * 0.5;
+    const ax = x - dx * halfLength;
+    const ay = y - dy * halfLength;
+    const bx = x + dx * halfLength;
+    const by = y + dy * halfLength;
+    const z = Math.max(this.tubeNormalLift, 0.10);
+    const start = mb.getVerticesCount();
+    const nx = 0.0, ny = 0.0, nz = 1.0;
+
+    mb.appendVerticesInterleaved([
+      ax - px * halfWidth, ay - py * halfWidth, z, nx, ny, nz, 0.0, phase, color.x, color.y, color.z, color.w,
+      ax + px * halfWidth, ay + py * halfWidth, z, nx, ny, nz, 0.0, phase, color.x, color.y, color.z, color.w,
+      bx - px * halfWidth, by - py * halfWidth, z, nx, ny, nz, 1.0, phase, color.x, color.y, color.z, color.w,
+      bx + px * halfWidth, by + py * halfWidth, z, nx, ny, nz, 1.0, phase, color.x, color.y, color.z, color.w,
+    ]);
+    mb.appendIndices([start, start + 1, start + 2, start + 1, start + 3, start + 2]);
+  }
+
+  private appendXYSegmentQuad(mb: MeshBuilder, x0: number, y0: number, x1: number, y1: number, width: number, z: number, color: vec4): void {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const len = Math.hypot(dx, dy);
+    if (len < 0.0001) return;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const hw = width * 0.5;
+    const start = mb.getVerticesCount();
+    mb.appendVerticesInterleaved([
+      x0 - nx * hw, y0 - ny * hw, z, 0.0, 0.0, 1.0, 0.0, 0.0, color.x, color.y, color.z, color.w,
+      x0 + nx * hw, y0 + ny * hw, z, 0.0, 0.0, 1.0, 0.0, 0.0, color.x, color.y, color.z, color.w,
+      x1 - nx * hw, y1 - ny * hw, z, 0.0, 0.0, 1.0, 1.0, 0.0, color.x, color.y, color.z, color.w,
+      x1 + nx * hw, y1 + ny * hw, z, 0.0, 0.0, 1.0, 1.0, 0.0, color.x, color.y, color.z, color.w,
+    ]);
+    mb.appendIndices([start, start + 1, start + 2, start + 1, start + 3, start + 2]);
+  }
+
+  private sanitizeColor(color: vec4): vec4 {
+    if (!color) return new vec4(0.0, 1.0, 1.0, 0.95);
+    return new vec4(
+      this.clamp(color.x, 0.0, 1.0),
+      this.clamp(color.y, 0.0, 1.0),
+      this.clamp(color.z, 0.0, 1.0),
+      this.clamp(color.w, 0.0, 1.0)
+    );
+  }
+
+  private colorForValue(value: number): vec4 {
+    if (!this.useSpeedColorMap) {
+      return new vec4(
+        this.clamp(this.glyphColor.x, 0.0, 1.0),
+        this.clamp(this.glyphColor.y, 0.0, 1.0),
+        this.clamp(this.glyphColor.z, 0.0, 1.0),
+        this.clamp(this.glyphColor.w, 0.0, 1.0)
+      );
+    }
+    const scale = Math.abs(this.colorMapScale) < 0.0001 ? 1.0 : this.colorMapScale;
+    const t = this.clamp(value * scale + this.colorMapOffset, 0.0, 1.0);
+    const rgb = this.boostColor(this.sampleColorMap(t));
+    return new vec4(rgb.x, rgb.y, rgb.z, 1.0);
+  }
+
+  private sampleColorMap(t: number): vec3 {
+    const map = Math.floor(this.colorMap);
+    if (map === 13) return this.mapJet(t);
+    if (map === 18) return this.mapPlasma(t);
+    if (map === 19) return this.mapAeroCyan(t);
+    return this.mapViridis(t);
+  }
+
+  private mapJet(t: number): vec3 {
+    const x = this.clamp(t, 0.0, 1.0);
+    return new vec3(
+      this.clamp(1.5 - Math.abs(4.0 * x - 3.0), 0.0, 1.0),
+      this.clamp(1.5 - Math.abs(4.0 * x - 2.0), 0.0, 1.0),
+      this.clamp(1.5 - Math.abs(4.0 * x - 1.0), 0.0, 1.0)
+    );
+  }
+
+  private mapViridis(t: number): vec3 {
+    return this.stops5(
+      t,
+      new vec3(0.27, 0.01, 0.33),
+      new vec3(0.23, 0.32, 0.55),
+      new vec3(0.13, 0.57, 0.55),
+      new vec3(0.37, 0.79, 0.38),
+      new vec3(0.99, 0.91, 0.15)
+    );
+  }
+
+  private mapPlasma(t: number): vec3 {
+    return this.stops7(
+      t,
+      new vec3(0.05, 0.03, 0.53),
+      new vec3(0.23, 0.06, 0.50),
+      new vec3(0.42, 0.00, 0.66),
+      new vec3(0.70, 0.16, 0.56),
+      new vec3(0.88, 0.39, 0.38),
+      new vec3(0.99, 0.65, 0.21),
+      new vec3(0.94, 0.98, 0.13)
+    );
+  }
+
+  private mapAeroCyan(t: number): vec3 {
+    return this.stops5(
+      t,
+      new vec3(0.03, 0.12, 0.30),
+      new vec3(0.00, 0.42, 0.78),
+      new vec3(0.00, 0.86, 0.94),
+      new vec3(0.46, 1.00, 0.86),
+      new vec3(1.00, 1.00, 1.00)
+    );
+  }
+
+  private stops5(t: number, c0: vec3, c1: vec3, c2: vec3, c3: vec3, c4: vec3): vec3 {
+    const x = this.clamp(t, 0.0, 1.0);
+    if (x < 0.25) return this.mixVec3(c0, c1, this.smoothstep((x - 0.0) / 0.25));
+    if (x < 0.50) return this.mixVec3(c1, c2, this.smoothstep((x - 0.25) / 0.25));
+    if (x < 0.75) return this.mixVec3(c2, c3, this.smoothstep((x - 0.50) / 0.25));
+    return this.mixVec3(c3, c4, this.smoothstep((x - 0.75) / 0.25));
+  }
+
+  private stops7(t: number, c0: vec3, c1: vec3, c2: vec3, c3: vec3, c4: vec3, c5: vec3, c6: vec3): vec3 {
+    const x = this.clamp(t, 0.0, 1.0);
+    const step = 1.0 / 6.0;
+    if (x < step) return this.mixVec3(c0, c1, this.smoothstep(x / step));
+    if (x < step * 2.0) return this.mixVec3(c1, c2, this.smoothstep((x - step) / step));
+    if (x < step * 3.0) return this.mixVec3(c2, c3, this.smoothstep((x - step * 2.0) / step));
+    if (x < step * 4.0) return this.mixVec3(c3, c4, this.smoothstep((x - step * 3.0) / step));
+    if (x < step * 5.0) return this.mixVec3(c4, c5, this.smoothstep((x - step * 4.0) / step));
+    return this.mixVec3(c5, c6, this.smoothstep((x - step * 5.0) / step));
+  }
+
+  private boostColor(color: vec3): vec3 {
+    const luma = color.x * 0.299 + color.y * 0.587 + color.z * 0.114;
+    return new vec3(
+      this.clamp((luma + (color.x - luma) * 1.22) * 1.18 + 0.055, 0.0, 1.0),
+      this.clamp((luma + (color.y - luma) * 1.22) * 1.18 + 0.055, 0.0, 1.0),
+      this.clamp((luma + (color.z - luma) * 1.22) * 1.18 + 0.055, 0.0, 1.0)
+    );
+  }
+
+  private mixVec3(a: vec3, b: vec3, t: number): vec3 {
+    return new vec3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
+  }
+
+  private applyMaterialForMode(): void {
+    if (!this.rmv) return;
+    const desired = this.isGlyphMaterialMode() ? this.getGlyphMaterialInstance() : this.material;
+    if (desired && this.rmv.mainMaterial !== desired) {
+      this.rmv.mainMaterial = desired;
+      this.pass = desired.mainPass as any;
+    } else if (desired) {
+      this.pass = desired.mainPass as any;
+    }
+    if (this.pass) {
+      const glyphMode = this.isGlyphMaterialMode();
+      try { this.pass.depthTest = !glyphMode; } catch (e) {}
+      try { this.pass.DepthTest = !glyphMode; } catch (e) {}
+      try { this.pass.depthWrite = false; } catch (e) {}
+      try { this.pass.DepthWrite = false; } catch (e) {}
+      try { this.pass.twoSided = true; } catch (e) {}
+      try { this.pass.TwoSided = true; } catch (e) {}
+      try { this.pass.blendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+      try { this.pass.BlendMode = BlendMode.PremultipliedAlphaAuto; } catch (e) {}
+    }
+  }
+
+  private getGlyphMaterialInstance(): Material {
+    if (!this.glyphMaterialInstance) {
+      const source = this.glyphMaterial || DEFAULT_TUBE_MATERIAL;
+      try {
+        this.glyphMaterialInstance = source.clone();
+      } catch (e) {
+        this.glyphMaterialInstance = source;
+      }
+    }
+    return this.glyphMaterialInstance;
+  }
+
+  private isStreamlineRibbonMode(): boolean {
+    return Math.floor(this.renderMode) === 1;
+  }
+
+  private isDebugTubeMode(): boolean {
+    return Math.floor(this.renderMode) === 2;
+  }
+
+  private isRibbonGlyphMode(): boolean {
+    return Math.floor(this.renderMode) === 0;
+  }
+
+  private isGlyphMaterialMode(): boolean {
+    return this.isRibbonGlyphMode() || this.isDebugTubeMode();
   }
 
   private smoothPath(
@@ -189,6 +1198,19 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   private smoothstep(t: number): number {
     const x = Math.max(0.0, Math.min(1.0, t));
     return x * x * (3.0 - 2.0 * x);
+  }
+
+  private smoothstepRange(edge0: number, edge1: number, value: number): number {
+    const denom = Math.max(0.0001, edge1 - edge0);
+    return this.smoothstep((value - edge0) / denom);
+  }
+
+  private fract(value: number): number {
+    return value - Math.floor(value);
+  }
+
+  private clamp(value: number, minValue: number, maxValue: number): number {
+    return Math.max(minValue, Math.min(maxValue, value));
   }
 
   private setSlide(h: vec3, c: number): void {
