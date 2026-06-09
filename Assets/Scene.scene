@@ -556,7 +556,7 @@
   PrefabRemaps:
     []
   Name: Car Flow Lines
-  Enabled: true
+  Enabled: false
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: -0.320000, y: 0.950000, z: 0.000000}
@@ -1572,7 +1572,7 @@
     - ed75ed76-d2a7-46dc-94f1-4ce6fd3fa841: ff3ff9ef-ee02-4633-7c3c-067da3b1d011
     - f882ef77-2b42-4559-a238-057127befcb7: 6457d9ce-eb75-4bfa-78ca-41dcc047ed2f
   Name: racecar
-  Enabled: true
+  Enabled: false
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: 0.000000, y: 0.000000, z: 0.000000}
@@ -4692,7 +4692,57 @@
     - !<own> 2b707749-0be7-4a3a-8ac1-d14a5868af16
     - !<own> 0b6a6847-33e7-4426-8d0f-b1439e97c835
   Components:
+    - !<own> a17f8e7d-c0cc-4f9c-8f7d-1d515adcf201
+- !<ScriptComponent/a17f8e7d-c0cc-4f9c-8f7d-1d515adcf201>
+  PrefabRemaps:
     []
+  Name: LiveFoilFlow2D
+  Enabled: true
+  ScriptAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
+  ScriptInputsDefault:
+    liveEnabled: true
+    foilObject: true
+    planeWidth: true
+    planeHeight: true
+    updateHz: true
+    flowSpeed: true
+    invertFlowDirection: true
+    foilAngleDeg: true
+    foilCenterX: true
+    foilCenterY: true
+    foilChord01: true
+    obstacleShape: true
+    lineCount: true
+    lineSegments: true
+    lineWidth: true
+    dotScrollSpeed: true
+    flowColor: true
+    foilColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      liveEnabled: true
+      foilObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      planeWidth: !<float> 24.000000
+      planeHeight: 9.270000
+      updateHz: !<float> 15.000000
+      flowSpeed: 1.150000
+      invertFlowDirection: true
+      foilAngleDeg: !<float> 0.000000
+      foilCenterX: !<float> 0.000000
+      foilCenterY: !<float> 0.000000
+      foilChord01: 0.640000
+      obstacleShape: 0
+      lineCount: 9
+      lineSegments: 48
+      lineWidth: 0.055000
+      dotScrollSpeed: 1.600000
+      flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}
+      foilColor: !<Vec4> {x: 0.120000, y: 0.880000, z: 1.000000, w: 0.950000}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/9698ac20-c937-4d21-94d4-7705e13be774>
   PrefabRemaps:
     []

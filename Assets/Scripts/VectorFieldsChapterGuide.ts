@@ -38,6 +38,7 @@ type ExampleVariantId = "gravity:field" | "gravity:artemis";
 type ExampleModeId = "gravity:bodies" | "gravity:arrows" | "gravity:lines" | "magnetism:trails" | "magnetism:arrows" | "wind:trails" | "wind:points" | "wind:arrows";
 type TheoryFieldModeId = "expansion" | "contraction" | "curl" | "motion";
 type GradientPaletteId = "jet" | "viridis" | "plasma";
+type AeroShapeId = "airfoil" | "sphere" | "square" | "plate" | "car";
 
 type ImageBinding = {
     object: SceneObject;
@@ -149,6 +150,13 @@ type TheoryFieldOption = {
 
 type GradientPaletteOption = {
     id: GradientPaletteId;
+    label: string;
+    index: number;
+    slot: StoryGuideSlot;
+};
+
+type AeroShapeOption = {
+    id: AeroShapeId;
     label: string;
     index: number;
     slot: StoryGuideSlot;
@@ -363,6 +371,9 @@ const INTERACTION_ISOLATION_ROOTS = [
     "Globe Spin-Lock Button",
     "Proxy_Interactable_Handle_Test",
     "Flow Slice",
+    "LiveFoilFlow2D",
+    "LiveFoil",
+    "Live Foil",
     "Car Fluid Flow",
     "TubeTest",
 ];
@@ -417,6 +428,12 @@ const AERO_GRADIENT_PALETTE_SLOTS: StoryGuideSlot[] = [
     { x: -2.85, y: -3.36, width: 5.2, height: 1.52 },
     { x: 2.9, y: -3.36, width: 5.2, height: 1.52 },
 ];
+const AERO_SHAPE_OPTIONS: AeroShapeOption[] = [
+    { id: "airfoil", label: "Airfoil", index: 0, slot: { x: -9.9, y: -1.20, width: 5.8, height: 1.58 } },
+    { id: "sphere", label: "Sphere", index: 1, slot: { x: -3.3, y: -1.20, width: 5.8, height: 1.58 } },
+    { id: "square", label: "Square", index: 2, slot: { x: 3.3, y: -1.20, width: 5.8, height: 1.58 } },
+    { id: "plate", label: "Plate", index: 3, slot: { x: 9.9, y: -1.20, width: 5.8, height: 1.58 } },
+];
 const AERO_GRADIENT_SCALE_SLOT: StoryGuideSlot = { x: 5.1, y: -5.34, width: 15.4, height: 1.42 };
 const AERO_GRADIENT_OFFSET_SLOT: StoryGuideSlot = { x: 5.1, y: -7.18, width: 15.4, height: 1.42 };
 const MAGNETIC_ADVANCED_SLOT: StoryGuideSlot = { x: 0.0, y: -7.84, width: 8.0, height: 1.64 };
@@ -430,9 +447,9 @@ const GRADIENT_SLIDER_KNOB_WIDTH = 0.68;
 const GRADIENT_SLIDER_KNOB_HEIGHT = 0.68;
 const GRADIENT_SLIDER_LABEL_Y = 0.30;
 const GRADIENT_SLIDER_SIDE_MARGIN = 0.66;
-const GRADIENT_SLIDER_LABEL_WIDTH = 2.18;
+const GRADIENT_SLIDER_LABEL_WIDTH = 2.75;
 const GRADIENT_SLIDER_VALUE_WIDTH = 2.0;
-const GRADIENT_SLIDER_TEXT_TRACK_GAP = 0.40;
+const GRADIENT_SLIDER_TEXT_TRACK_GAP = 0.22;
 const GRADIENT_SLIDER_BACKPLATE_Z = 0.12;
 const GRADIENT_SLIDER_TRACK_Z = 0.24;
 const GRADIENT_SLIDER_FILL_Z = 0.34;
@@ -572,6 +589,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private metricsPage: number = 0;
     private definitionPage: number = 0;
     private paletteButtons: ButtonBinding[] = [];
+    private aeroShapeButtons: ButtonBinding[] = [];
     private gradientSliders: GradientSliderBinding[] = [];
     private magneticAdvancedButton: ButtonBinding | null = null;
     private magneticSliders: GradientSliderBinding[] = [];
@@ -587,6 +605,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private windEventCards: WindEventCardBinding[] = [];
     private selectedTheoryMode: TheoryFieldModeId = "expansion";
     private selectedGradientPalette: GradientPaletteId = "plasma";
+    private selectedAeroShape: AeroShapeId = "airfoil";
     private gradientScaleValue: number = 1.0;
     private gradientOffsetValue: number = 0.0;
     private magneticPowerValue: number = 0.09;
@@ -599,6 +618,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private menuDragActive: boolean = false;
     private menuDragStartCursorWorld: vec3 | null = null;
     private menuDragStartMenuWorld: vec3 | null = null;
+    private runtimeFollowDistanceCm: number = Number.NaN;
     private isolatedColliders: ColliderBinding[] = [];
     private hiddenUIKitButtons: RectangleButton[] = [];
     private built: boolean = false;
@@ -782,6 +802,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.createWindWeatherPanel();
         this.createTheoryFieldSelectors();
         this.createGradientPaletteSelectors();
+        this.createAeroShapeSelectors();
         this.createGradientSliders();
         this.createTheoryInfoCard();
         this.prewarmTheoryPatternControls();
@@ -841,6 +862,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             248,
             () => {
                 this.followUser = !this.followUser;
+                if (this.followUser) this.captureRuntimeFollowDistance();
                 this.syncVisualState();
             },
             false,
@@ -1192,6 +1214,29 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
     }
 
+    private createAeroShapeSelectors(): void {
+        for (let i = 0; i < AERO_SHAPE_OPTIONS.length; i++) {
+            const option = AERO_SHAPE_OPTIONS[i];
+            const binding = this.createTextureButton(
+                "__GuideAeroShape_" + option.id,
+                "aero_shape:" + option.id,
+                this.offsetSlot(option.slot),
+                TEX_VARIANT_NORMAL,
+                TEX_VARIANT_ACTIVE,
+                TEX_VARIANT_PRESSED,
+                251,
+                () => this.selectAeroShape(option.id),
+                true,
+                TEX_UTILITY_OVERLAY_HOVER,
+                TEX_UTILITY_OVERLAY_HOVER,
+                TEX_UTILITY_OVERLAY_PRESSED
+            );
+            binding.label = this.createButtonLabel(binding.object, "__Label", option.label, option.slot.width, option.slot.height, 256);
+            binding.object.enabled = false;
+            this.aeroShapeButtons.push(binding);
+        }
+    }
+
     private createTheoryInfoCard(): void {
         const option = this.currentTheoryFieldOption();
         const texture = THEORY_INFO_TEXTURES[option.id] || THEORY_INFO_TEXTURES.expansion;
@@ -1267,6 +1312,10 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
         if (this.paletteButtons.length < GRADIENT_PALETTE_OPTIONS.length) {
             this.createGradientPaletteSelectors();
+            added = true;
+        }
+        if (this.aeroShapeButtons.length < AERO_SHAPE_OPTIONS.length) {
+            this.createAeroShapeSelectors();
             added = true;
         }
         if (this.gradientSliders.length < 2) {
@@ -1773,6 +1822,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.syncTheoryFieldModeState();
         this.syncMotionInstructionState();
         this.updateGradientControlSlotsForContext();
+        this.syncAeroShapeState();
         this.syncGradientPaletteState();
         this.syncGradientSliderState();
         this.syncUtilityDockTargets();
@@ -2028,7 +2078,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             this.findObjectByName("Magnetic Field Root"),
             this.findObjectByName("Gravity Field Root"),
             this.findObjectByName("Globe Calibration"),
-            this.findObjectByName("Car Fluid Flow"),
+            this.findAeroFlowRoot(),
         ]);
     }
 
@@ -2123,6 +2173,18 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             this.directorApi.selectMagneticTubeMode(this.selectedMagnetismTubeMode);
         } else if (this.selectedExampleField === "wind" && typeof this.directorApi.selectWindTubeMode === "function") {
             this.directorApi.selectWindTubeMode(this.selectedWindTubeMode);
+        } else if (this.selectedExampleField === "aerodynamics") {
+            this.syncDirectorAeroBackend(stepId);
+        }
+    }
+
+    private syncDirectorAeroBackend(stepId: string): void {
+        if (stepId !== "examples" || !this.directorApi || !this.examplesDetailOpen) return;
+        const backend = this.isCarAeroShape() ? "car" : "foil";
+        if (typeof this.directorApi.selectAerodynamicsBackend === "function") {
+            this.directorApi.selectAerodynamicsBackend(backend);
+        } else if (typeof this.directorApi.setAerodynamicsBackend === "function") {
+            this.directorApi.setAerodynamicsBackend(backend);
         }
     }
 
@@ -2173,6 +2235,10 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         if (!this.isGradientControlContext(stepId)) return;
 
         const aeroContext = stepId === "examples" && this.selectedExampleField === "aerodynamics";
+        if (aeroContext) {
+            this.applyAeroFlowControlsToActiveFlow();
+            return;
+        }
         const root = aeroContext
             ? this.findObjectByName("Car Fluid Flow")
             : this.findObjectByName("Vector Field Examples Root");
@@ -2203,6 +2269,109 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
         if (typeof api.updateMaterialParams === "function") {
             api.updateMaterialParams();
+        }
+    }
+
+    private applyAeroFlowControlsToActiveFlow(): void {
+        const root = this.findAeroFlowRoot();
+        const densityApi = this.findAnyScriptApi(root, "setVectorDensityNormalized") || this.findAnyScriptApi(root, "setLineCount");
+        const speedApi = this.findAnyScriptApi(root, "setFlowSpeedNormalized") || this.findAnyScriptApi(root, "setFlowSpeed");
+        const density = this.sliderNormalized(this.gradientScaleValue, 0.05, 4.0);
+        const speed = this.sliderNormalized(this.gradientOffsetValue, -1.0, 1.0);
+
+        if (densityApi) {
+            if (typeof densityApi.setVectorDensityNormalized === "function") densityApi.setVectorDensityNormalized(density);
+            else if (typeof densityApi.setLineCount === "function") densityApi.setLineCount(4.0 + density * 12.0);
+        }
+        if (speedApi) {
+            if (typeof speedApi.setFlowSpeedNormalized === "function") speedApi.setFlowSpeedNormalized(speed);
+            else if (typeof speedApi.setFlowSpeed === "function") speedApi.setFlowSpeed(0.35 + speed * 2.65);
+        }
+    }
+
+    private applyAeroShapeToActiveFlow(): void {
+        const liveFoilRoot = this.findAeroFlowRoot();
+        const flowSliceRoot = this.findObjectByName("Flow Slice");
+        const option = this.aeroShapeOptionForId(this.selectedAeroShape) || AERO_SHAPE_OPTIONS[0];
+        if (option.id === "car") {
+            this.setObjectEnabledByName("Car Fluid Flow", true);
+            this.setCarAerodynamicsTreeEnabled(liveFoilRoot, true);
+            const modeApi = this.findAnyScriptApi(liveFoilRoot, "setAerodynamicsMode") || this.findAnyScriptApi(liveFoilRoot, "setAeroBackend");
+            if (modeApi) {
+                if (typeof modeApi.setAerodynamicsMode === "function") modeApi.setAerodynamicsMode("car");
+                else if (typeof modeApi.setAeroBackend === "function") modeApi.setAeroBackend("car");
+            }
+            const carApi = this.findAnyScriptApi(liveFoilRoot, "setDataSet") || this.findAnyScriptApi(liveFoilRoot, "setCarDataSet") || this.findAnyScriptApi(this.findObjectByName("Car Flow Lines"), "setDataSet");
+            if (carApi) {
+                if (typeof carApi.setCarDataSet === "function") carApi.setCarDataSet();
+                else if (typeof carApi.setDataSet === "function") carApi.setDataSet(0);
+                if (typeof carApi.refreshSliceHome === "function") carApi.refreshSliceHome();
+                if (typeof carApi.refreshObstacleContour === "function") carApi.refreshObstacleContour();
+                else if (typeof carApi.rebuildObstacleContour === "function") carApi.rebuildObstacleContour();
+                if (typeof carApi.refresh === "function") carApi.refresh();
+            }
+            return;
+        }
+        this.setCarAerodynamicsTreeEnabled(this.findObjectByName("Car Fluid Flow"), false);
+        const modeApi = this.findAnyScriptApi(liveFoilRoot, "setAerodynamicsMode") || this.findAnyScriptApi(liveFoilRoot, "setAeroBackend");
+        if (modeApi) {
+            if (typeof modeApi.setAerodynamicsMode === "function") modeApi.setAerodynamicsMode("foil");
+            else if (typeof modeApi.setAeroBackend === "function") modeApi.setAeroBackend("foil");
+        }
+        const api = this.findAnyScriptApi(liveFoilRoot, "setObstacleShape") || this.findAnyScriptApi(flowSliceRoot, "setObstacleShape");
+        if (!api) return;
+        api.setObstacleShape(option.index);
+    }
+
+    private findAeroFlowRoot(): SceneObject | null {
+        if (this.isCarAeroShape()) {
+            return this.findObjectByName("Car Fluid Flow") ||
+                this.findObjectByName("LiveFoilFlow2D") ||
+                this.findObjectByName("LiveFoil") ||
+                this.findObjectByName("Live Foil");
+        }
+        return this.findObjectByName("LiveFoilFlow2D") ||
+            this.findObjectByName("LiveFoil") ||
+            this.findObjectByName("Live Foil") ||
+            this.findObjectByName("Car Fluid Flow");
+    }
+
+    private hasStandaloneAeroFlowRoot(): boolean {
+        return !!(this.findObjectByName("LiveFoilFlow2D") ||
+            this.findObjectByName("LiveFoil") ||
+            this.findObjectByName("Live Foil"));
+    }
+
+    private isCarAeroShape(): boolean {
+        return false;
+    }
+
+    private setCarAerodynamicsTreeEnabled(root: SceneObject | null, enabled: boolean): void {
+        if (!root) return;
+        const name = root.name || "";
+        if (name === "Car Flow Lines" ||
+            name === "Flow Slice Gizmo" ||
+            name === "racecar" ||
+            name === "Sketchfab_model" ||
+            name === "GLTF_SceneRootNode") {
+            root.enabled = enabled;
+        }
+        const scripts = root.getComponents("Component.ScriptComponent");
+        for (let i = 0; i < scripts.length; i++) {
+            const script = scripts[i] as any;
+            if (!script) continue;
+            try {
+                if (script.name === "CarFlowStreamlines" ||
+                    script.name === "FlowSliceGizmo" ||
+                    script.windApi !== undefined ||
+                    script.setDataSet !== undefined ||
+                    script.setSlice01 !== undefined) {
+                    script.enabled = enabled;
+                }
+            } catch (e) {}
+        }
+        for (let i = 0; i < root.getChildrenCount(); i++) {
+            this.setCarAerodynamicsTreeEnabled(root.getChild(i), enabled);
         }
     }
 
@@ -2264,6 +2433,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     private resetActiveVisual(): void {
         this.setProxyPlaneActive(false);
+        this.resetAeroFoilIfActive();
         if (this.resetWindGlobeInPlaceIfActive()) {
             this.keepPlaneControlsWhileFolded = false;
             this.syncVisualState();
@@ -2281,6 +2451,24 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
         this.keepPlaneControlsWhileFolded = false;
         this.syncVisualState();
+    }
+
+    private resetAeroFoilIfActive(): void {
+        if (!(this.examplesMenuOpen && this.examplesDetailOpen && this.selectedExampleField === "aerodynamics")) return;
+        const root = this.findAeroFlowRoot();
+        if (this.isCarAeroShape()) {
+            const carApi = this.findAnyScriptApi(root, "setSlice01") || this.findAnyScriptApi(this.findObjectByName("Car Flow Lines"), "setSlice01");
+            if (carApi) {
+                if (typeof carApi.refreshSliceHome === "function") carApi.refreshSliceHome();
+                if (typeof carApi.setSlice01 === "function") carApi.setSlice01(0.5);
+                if (typeof carApi.refresh === "function") carApi.refresh();
+            }
+            return;
+        }
+        const api = this.findAnyScriptApi(root, "resetFoil") || this.findAnyScriptApi(root, "resetFoilPose");
+        if (!api) return;
+        if (typeof api.resetFoil === "function") api.resetFoil();
+        else if (typeof api.resetFoilPose === "function") api.resetFoilPose();
     }
 
     private resetWindGlobeInPlaceIfActive(): boolean {
@@ -2326,7 +2514,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     }
 
     private beginMenuDrag(event: any): void {
-        const worldPoint = this.cursorWorldPointFromEvent(event);
+        const worldPoint = this.menuDragWorldPointFromEvent(event);
         if (!worldPoint) return;
 
         this.menuDragActive = true;
@@ -2340,7 +2528,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     private updateMenuDrag(event: any): void {
         if (!this.menuDragActive || !this.menuDragStartCursorWorld || !this.menuDragStartMenuWorld) return;
-        const worldPoint = this.cursorWorldPointFromEvent(event);
+        const worldPoint = this.menuDragWorldPointFromEvent(event);
         if (!worldPoint) return;
 
         const delta = this.projectMenuDragDelta(worldPoint.sub(this.menuDragStartCursorWorld));
@@ -2348,11 +2536,44 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.dockProxyPlaneSoftly();
     }
 
+    private menuDragWorldPointFromEvent(event: any): vec3 | null {
+        const interactor = event && event.interactor ? event.interactor : null;
+        if (!interactor) return this.cursorWorldPointFromEvent(event);
+
+        const directPoint = this.vec3Like(interactor.worldPosition) ||
+            this.vec3Like(interactor.position) ||
+            this.vec3Like(interactor.handPosition) ||
+            this.vec3Like(interactor.pinchPosition) ||
+            this.vec3Like(interactor.rayOrigin) ||
+            this.vec3Like(interactor.startPoint);
+        if (directPoint) return directPoint;
+
+        try {
+            if (typeof interactor.getRay === "function") {
+                const ray = interactor.getRay();
+                const origin = ray ? this.vec3Like(ray.origin) || this.vec3Like(ray.startPoint) : null;
+                if (origin) return origin;
+            }
+        } catch (e) {}
+
+        try {
+            if (interactor.ray) {
+                const origin = this.vec3Like(interactor.ray.origin) || this.vec3Like(interactor.ray.startPoint);
+                if (origin) return origin;
+            }
+        } catch (e) {}
+
+        return this.cursorWorldPointFromEvent(event);
+    }
+
     private projectMenuDragDelta(delta: vec3): vec3 {
         const rotation = this.sceneObject.getTransform().getWorldRotation();
         const right = rotation.multiplyVec3(new vec3(1.0, 0.0, 0.0));
         const up = rotation.multiplyVec3(new vec3(0.0, 1.0, 0.0));
-        return right.uniformScale(delta.dot(right)).add(up.uniformScale(delta.dot(up)));
+        const forward = rotation.multiplyVec3(new vec3(0.0, 0.0, 1.0));
+        return right.uniformScale(delta.dot(right))
+            .add(up.uniformScale(delta.dot(up)))
+            .add(forward.uniformScale(delta.dot(forward)));
     }
 
     private endMenuDrag(): void {
@@ -2485,7 +2706,8 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         const showWind = showExampleContent && this.selectedExampleField === "wind";
         const showAerodynamics = showExampleContent && this.selectedExampleField === "aerodynamics";
         const showWindGlobe = showWind;
-        const showCarFlow = showAerodynamics;
+        const showCarFlow = showAerodynamics && (this.isCarAeroShape() || !this.hasStandaloneAeroFlowRoot());
+        const showLiveAero = showAerodynamics && !this.isCarAeroShape();
         const showArtemis = showGravity && this.selectedGravityVariant === "artemis";
 
         this.setObjectEnabledByName("Motion Field Root", showMotion);
@@ -2497,6 +2719,9 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.setObjectEnabledByName("Mission Info", showArtemis);
         this.setObjectEnabledByName("MissionInfoPanel", showArtemis);
         this.setObjectEnabledByName("Globe Calibration", showWindGlobe);
+        this.setObjectEnabledByName("LiveFoilFlow2D", showLiveAero);
+        this.setObjectEnabledByName("LiveFoil", showLiveAero);
+        this.setObjectEnabledByName("Live Foil", showLiveAero);
         this.setObjectEnabledByName("Car Fluid Flow", showCarFlow);
         if (showMotion || showVector) {
             this.stageFallbackTheoryFieldMode();
@@ -2511,6 +2736,9 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         }
         if (showWindGlobe) {
             this.applyTubeMode(this.findObjectByName("Globe Calibration"), this.selectedWindTubeMode);
+        }
+        if (showAerodynamics) {
+            this.applyAeroShapeToActiveFlow();
         }
     }
 
@@ -3057,10 +3285,12 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         const cameraForward = cameraRotation.multiplyVec3(new vec3(0.0, 0.0, -1.0));
         const forward = this.safeHorizontalDirection(cameraForward, new vec3(0.0, 0.0, -1.0));
         const right = this.safeDirection(new vec3(forward.z, 0.0, -forward.x), new vec3(1.0, 0.0, 0.0));
+        if (!isFinite(this.runtimeFollowDistanceCm)) this.captureRuntimeFollowDistance(camera, forward);
+        const distance = isFinite(this.runtimeFollowDistanceCm) ? this.runtimeFollowDistanceCm : this.menuDistanceCm;
         const target = cameraPosition
             .add(right.uniformScale(this.menuHorizontalOffsetCm))
             .add(worldUp.uniformScale(this.menuVerticalOffsetCm + this.menuLowerOffsetCm + this.weatherMenuDropCm * this.weatherLayoutBlend + this.analyticalMenuLiftCm * this.analyticalLayoutBlend))
-            .add(forward.uniformScale(this.menuDistanceCm));
+            .add(forward.uniformScale(distance));
 
         const transform = this.sceneObject.getTransform();
         const current = transform.getWorldPosition();
@@ -3078,6 +3308,23 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         if (faceDirection.length > 0.0001) {
             transform.setWorldRotation(quat.lookAt(faceDirection, worldUp));
         }
+    }
+
+    private captureRuntimeFollowDistance(camera?: SceneObject | null, forwardHint?: vec3 | null): void {
+        const cameraObject = camera || this.cameraRoot || this.findObjectByName("Camera Object") || this.findObjectByName("Camera");
+        if (!cameraObject) {
+            this.runtimeFollowDistanceCm = this.menuDistanceCm;
+            return;
+        }
+        const cameraTransform = cameraObject.getTransform();
+        const cameraPosition = cameraTransform.getWorldPosition();
+        const forward = forwardHint || this.safeHorizontalDirection(
+            cameraTransform.getWorldRotation().multiplyVec3(new vec3(0.0, 0.0, -1.0)),
+            new vec3(0.0, 0.0, -1.0)
+        );
+        const current = this.sceneObject.getTransform().getWorldPosition();
+        const depth = current.sub(cameraPosition).dot(forward);
+        this.runtimeFollowDistanceCm = isFinite(depth) && depth > 1.0 ? depth : this.menuDistanceCm;
     }
 
     private applyMenuVisualScale(): void {
@@ -3240,6 +3487,10 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         return binding.id.indexOf("palette:") === 0;
     }
 
+    private isAeroShapeBinding(binding: ButtonBinding): boolean {
+        return binding.id.indexOf("aero_shape:") === 0;
+    }
+
     private variantOptionForBinding(binding: ButtonBinding): ExampleVariantOption | null {
         const id = binding.id.indexOf("variant:") === 0 ? binding.id.substr(8) : binding.id;
         return this.variantOptionForId(id as ExampleVariantId);
@@ -3253,6 +3504,11 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private paletteOptionForBinding(binding: ButtonBinding): GradientPaletteOption | null {
         const id = binding.id.indexOf("palette:") === 0 ? binding.id.substr(8) : binding.id;
         return this.paletteOptionForId(id as GradientPaletteId);
+    }
+
+    private aeroShapeOptionForBinding(binding: ButtonBinding): AeroShapeOption | null {
+        const id = binding.id.indexOf("aero_shape:") === 0 ? binding.id.substr(11) : binding.id;
+        return this.aeroShapeOptionForId(id as AeroShapeId);
     }
 
     private syncFieldSelectorState(): void {
@@ -3304,6 +3560,29 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             this.updateBindingVisual(binding);
         }
         if (this.cursorOwner && this.isExampleModeBinding(this.cursorOwner) && !this.cursorOwner.object.enabled) {
+            this.hideCursor();
+        }
+    }
+
+    private syncAeroShapeState(): void {
+        const visible = !this.folded && this.examplesMenuOpen && this.examplesDetailOpen && this.selectedExampleField === "aerodynamics";
+        if (!this.aeroShapeOptionForId(this.selectedAeroShape)) {
+            this.selectedAeroShape = "airfoil";
+        }
+        for (let i = 0; i < this.aeroShapeButtons.length; i++) {
+            const binding = this.aeroShapeButtons[i];
+            const option = this.aeroShapeOptionForBinding(binding);
+            const buttonVisible = visible && !!option;
+            binding.object.enabled = buttonVisible;
+            this.setButtonInteractionEnabled(binding, buttonVisible);
+            if (!buttonVisible) {
+                binding.hovered = false;
+                binding.pressedState = false;
+            }
+            binding.selected = visible && !!option && option.id === this.selectedAeroShape;
+            this.updateBindingVisual(binding);
+        }
+        if (this.cursorOwner && this.isAeroShapeBinding(this.cursorOwner) && !this.cursorOwner.object.enabled) {
             this.hideCursor();
         }
     }
@@ -3672,6 +3951,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         const trackMinX = trackCenterX - trackWidth * 0.5;
         const knobX = trackMinX + trackWidth * normalized;
 
+        binding.label.text = this.gradientSliderLabelText(binding);
         binding.valueLabel.text = this.gradientSliderValueText(binding);
         try {
             const color = binding.pressed
@@ -3724,10 +4004,35 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     }
 
     private gradientSliderValueText(binding: GradientSliderBinding): string {
+        if (this.isAeroFlowControlContext()) {
+            if (binding.id === "scale") return Math.round(this.sliderNormalized(binding.value, binding.min, binding.max) * 100) + "%";
+            if (binding.id === "offset") return Math.round(this.sliderNormalized(binding.value, binding.min, binding.max) * 100) + "%";
+        }
         if (binding.id === "scale") return "x" + binding.value.toFixed(2);
         if (this.isMagneticSliderId(binding.id)) return Math.round(binding.value * 100) + "%";
         const sign = binding.value >= 0.0 ? "+" : "";
         return sign + binding.value.toFixed(2);
+    }
+
+    private gradientSliderLabelText(binding: GradientSliderBinding): string {
+        if (this.isAeroFlowControlContext()) {
+            if (binding.id === "scale") return "Vectors";
+            if (binding.id === "offset") return "Speed";
+        }
+        if (binding.id === "scale") return "Scale";
+        if (binding.id === "offset") return "Offset";
+        if (binding.id === "mag_power") return "Power";
+        if (binding.id === "mag_pull") return "Pull";
+        if (binding.id === "mag_length") return "Length";
+        if (binding.id === "mag_speed") return "Speed";
+        return "";
+    }
+
+    private isAeroFlowControlContext(): boolean {
+        return GUIDE_STEPS[this.currentIndex].id === "examples" &&
+            this.examplesMenuOpen &&
+            this.examplesDetailOpen &&
+            this.selectedExampleField === "aerodynamics";
     }
 
     private updateButtonAnimations(): void {
@@ -3737,6 +4042,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.updateBindingAnimations(this.exampleModeButtons);
         this.updateBindingAnimations(this.theoryModeButtons);
         this.updateBindingAnimations(this.paletteButtons);
+        this.updateBindingAnimations(this.aeroShapeButtons);
         this.updateBindingAnimations(this.navButtons);
         this.updateBindingAnimations(this.utilityButtons);
         this.updateBindingAnimations(this.viewPlaneButtons);
@@ -3908,6 +4214,11 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             }
         } catch (e) {}
         return worldPoint;
+    }
+
+    private vec3Like(value: any): vec3 | null {
+        if (!value || typeof value.x !== "number" || typeof value.y !== "number" || typeof value.z !== "number") return null;
+        return new vec3(value.x, value.y, value.z);
     }
 
     private cursorLocalPointFromEvent(event: any): vec3 | null {
@@ -4082,7 +4393,11 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             return rootName === "Globe Calibration" || rootName === "Globe Spin-Lock Button";
         }
         if (this.selectedExampleField === "aerodynamics") {
-            return rootName === "Car Fluid Flow" || rootName === "Flow Slice";
+            return rootName === "LiveFoilFlow2D" ||
+                rootName === "LiveFoil" ||
+                rootName === "Live Foil" ||
+                rootName === "Car Fluid Flow" ||
+                rootName === "Flow Slice";
         }
         return false;
     }
@@ -4182,6 +4497,8 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
 
     private selectExampleField(field: ExampleFieldId): void {
         this.setProxyPlaneActive(false);
+        this.folded = false;
+        this.keepPlaneControlsWhileFolded = false;
         this.selectedExampleField = field;
         this.hasSelectedExampleField = true;
         if (field !== "magnetism") {
@@ -4199,6 +4516,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             this.selectedWindVariant = "car_flow";
             this.selectedWindTubeMode = 0;
             this.selectedGradientPalette = "plasma";
+            this.applyAeroShapeToActiveFlow();
         }
         if (GUIDE_STEPS[this.currentIndex].id !== "examples") {
             this.currentIndex = this.stepIndexForId("examples");
@@ -4207,6 +4525,9 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.examplesDetailOpen = true;
         this.theoryMenuOpen = false;
         this.stageCurrentRoot();
+        if (field === "aerodynamics") {
+            this.applyAeroShapeToActiveFlow();
+        }
         this.syncVisualState();
     }
 
@@ -4442,6 +4763,25 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.syncVisualState();
     }
 
+    private selectAeroShape(id: AeroShapeId): void {
+        const option = this.aeroShapeOptionForId(id);
+        if (!option) return;
+        this.setProxyPlaneActive(false);
+        this.selectedExampleField = "aerodynamics";
+        this.hasSelectedExampleField = true;
+        this.selectedWindVariant = "car_flow";
+        this.selectedAeroShape = option.id;
+        if (GUIDE_STEPS[this.currentIndex].id !== "examples") {
+            this.currentIndex = this.stepIndexForId("examples");
+        }
+        this.examplesMenuOpen = true;
+        this.examplesDetailOpen = true;
+        this.theoryMenuOpen = false;
+        this.stageCurrentRoot();
+        this.applyAeroShapeToActiveFlow();
+        this.syncVisualState();
+    }
+
     private returnToChapterList(): void {
         if (this.theoryMenuOpen && this.selectedTheoryCard !== "") {
             this.hideAllStagedVisualsForBack();
@@ -4570,6 +4910,13 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private paletteOptionForId(id: GradientPaletteId): GradientPaletteOption | null {
         for (let i = 0; i < GRADIENT_PALETTE_OPTIONS.length; i++) {
             if (GRADIENT_PALETTE_OPTIONS[i].id === id) return GRADIENT_PALETTE_OPTIONS[i];
+        }
+        return null;
+    }
+
+    private aeroShapeOptionForId(id: AeroShapeId): AeroShapeOption | null {
+        for (let i = 0; i < AERO_SHAPE_OPTIONS.length; i++) {
+            if (AERO_SHAPE_OPTIONS[i].id === id) return AERO_SHAPE_OPTIONS[i];
         }
         return null;
     }

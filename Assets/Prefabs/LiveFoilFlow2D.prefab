@@ -1,0 +1,87 @@
+- !<ObjectPrefab/9b6d7449-a1cc-44d0-95d2-87ca833faf91>
+  PackagePath: ""
+  objects:
+    - !<own> 4cc19b2e-a56c-4474-971a-71388253f234
+  LazyLoading: false
+  RetainAssets: true
+- !<SceneObject/4cc19b2e-a56c-4474-971a-71388253f234>
+  PrefabRemaps:
+    - 4cc19b2e-a56c-4474-971a-71388253f234: 4cc19b2e-a56c-4474-68e5-8ec77dac0dcb
+    - 774b069f-a640-4302-9c37-4e74f1bb33ae: 774b069f-a640-4302-63c8-b18b0e44cc51
+    - b938c669-cb82-417b-9d64-b390fc7a8d2e: b938c669-cb82-417b-629b-4c6f038572d1
+  Name: LiveFoilFlow2D
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    - !<own> b938c669-cb82-417b-9d64-b390fc7a8d2e
+  Components:
+    - !<own> 774b069f-a640-4302-9c37-4e74f1bb33ae
+- !<ScriptComponent/774b069f-a640-4302-9c37-4e74f1bb33ae>
+  PrefabRemaps:
+    []
+  Name: LiveFoilFlow2D
+  Enabled: true
+  ScriptAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
+  ScriptInputsDefault:
+    liveEnabled: true
+    planeWidth: true
+    planeHeight: true
+    updateHz: true
+    flowSpeed: true
+    invertFlowDirection: true
+    foilAngleDeg: true
+    foilCenterX: true
+    foilCenterY: true
+    foilChord01: true
+    obstacleShape: true
+    lineCount: true
+    lineSegments: true
+    lineWidth: true
+    dotScrollSpeed: true
+    flowColor: true
+    foilColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      liveEnabled: true
+      foilObject: !<reference.SceneObject> b938c669-cb82-417b-9d64-b390fc7a8d2e
+      planeWidth: !<float> 24.000000
+      planeHeight: 9.270000
+      updateHz: !<float> 15.000000
+      flowSpeed: 1.150000
+      invertFlowDirection: true
+      foilAngleDeg: !<float> 0.000000
+      foilCenterX: !<float> 0.000000
+      foilCenterY: !<float> 0.000000
+      foilChord01: 0.640000
+      obstacleShape: 0
+      lineCount: 9
+      lineSegments: 48
+      lineWidth: 0.055000
+      dotScrollSpeed: 1.600000
+      flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}
+      foilColor: !<Vec4> {x: 0.120000, y: 0.880000, z: 1.000000, w: 0.950000}
+  ScriptTypes:
+    "":
+      {}
+- !<SceneObject/b938c669-cb82-417b-9d64-b390fc7a8d2e>
+  PrefabRemaps:
+    []
+  Name: Foil Object
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    []

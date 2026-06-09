@@ -102,6 +102,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   private obstacleOutlineMaterialInstance: Material | null = null;
   private obstacleOutlineBuilt: boolean = false;
   private obstacleOutlineSlice: number = -1;
+  private obstacleOutlineDataSet: number = -1;
   private activeDataSet: number = -1;
 
   private cfdData(): any {
@@ -147,6 +148,13 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       getCurrentSlice01: () => self.slice01FromControl(),
       refreshSliceHome: () => self.captureSliceHome(),
       setSlice01: (value: number) => self.setSlice01(value),
+      setDataSet: (value: number | string) => self.setDataSet(value),
+      setCarDataSet: () => self.setDataSet(0),
+      setAirfoilDataSet: () => self.setDataSet(1),
+      refreshObstacleContour: () => self.refreshObstacleContour(),
+      rebuildObstacleContour: () => self.refreshObstacleContour(),
+      setFlowSpeedNormalized: (value: number) => self.setFlowSpeedNormalized(value),
+      setVectorDensityNormalized: (value: number) => self.setVectorDensityNormalized(value),
       getTubeGlyphFieldState: () => self.getTubeGlyphFieldState(),
       getTubeGlyphFieldSignature: () => self.getTubeGlyphFieldSignature(),
       setRenderMode: (mode: number | string) => self.setRenderMode(mode),
@@ -175,6 +183,46 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     const slice = this.sliceFromControl();
     this.buildSlice(slice, this.currentFrameIndex());
     this.updateObstacleMaskOutline(slice);
+  }
+
+  public setDataSet(value: number | string): void {
+    let next = 1;
+    if (typeof value === "number") {
+      next = Math.floor(value) === 0 ? 0 : 1;
+    } else {
+      const key = ("" + value).toLowerCase();
+      next = key === "car" || key === "car_cfd" || key === "baked_car" || key === "0" ? 0 : 1;
+    }
+    const currentSlice01 = this.slice01FromControl();
+    if (Math.floor(this.dataSet) === next && this.activeDataSet === next) {
+      this.refreshObstacleContour();
+      return;
+    }
+    this.dataSet = next;
+    this.refreshDataSetIfNeeded();
+    this.setSlice01(currentSlice01);
+    this.obstacleOutlineBuilt = false;
+    this.refresh();
+  }
+
+  public refreshObstacleContour(): void {
+    this.obstacleOutlineBuilt = false;
+    this.updateObstacleMaskOutline(this.sliceFromControl());
+  }
+
+  public setFlowSpeedNormalized(value: number): void {
+    if (!isFinite(value)) return;
+    const t = this.clamp(value, 0.0, 1.0);
+    this.phaseSpeed = 0.05 + t * 0.75;
+    this.autoScrollSpeed = 0.03 + t * 0.22;
+  }
+
+  public setVectorDensityNormalized(value: number): void {
+    if (!isFinite(value)) return;
+    const t = this.clamp(value, 0.0, 1.0);
+    this.tubeColumns = Math.floor(18 + t * 38);
+    this.tubeRows = Math.floor(8 + t * 18);
+    this.rebuildCurrentSlice();
   }
 
   public setColorMap(value: number | string): void {
@@ -567,7 +615,8 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   }
 
   private updateObstacleMaskOutline(sliceIndex: number): void {
-    if (this.obstacleOutlineBuilt && this.obstacleOutlineSlice === sliceIndex) {
+    const dataSet = Math.floor(this.dataSet) === 0 ? 0 : 1;
+    if (this.obstacleOutlineBuilt && this.obstacleOutlineSlice === sliceIndex && this.obstacleOutlineDataSet === dataSet) {
       this.updateObstacleMaskOutlineVisibility();
       return;
     }
@@ -579,6 +628,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     if (!segments || segments.length === 0) {
       this.obstacleOutlineBuilt = true;
       this.obstacleOutlineSlice = sliceIndex;
+      this.obstacleOutlineDataSet = dataSet;
       if (this.obstacleOutlineVisual) this.obstacleOutlineVisual.enabled = false;
       return;
     }
@@ -618,6 +668,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
     try { visual.renderOrder = 704; } catch (e) {}
     this.obstacleOutlineBuilt = true;
     this.obstacleOutlineSlice = sliceIndex;
+    this.obstacleOutlineDataSet = dataSet;
     this.updateObstacleMaskOutlineVisibility();
   }
 

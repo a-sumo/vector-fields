@@ -26,14 +26,14 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
+    aerodynamicsMenuOffset: false
+    aerodynamicsMenuTiltDegrees: false
     analyticalTabletopOffset: false
     analyticalTabletopTiltDegrees: false
     analyticalVectorFieldOffset: false
     applyOnStart: false
     calibrateReferenceOnStart: false
     cameraRoot: false
-    carFlowDropDistance: false
-    carFlowTiltDegrees: false
     controlContentRoots: false
     gravityFieldRoot: false
     gravityFrontOffset: false
@@ -107,8 +107,8 @@
       magneticReferenceOffset: !<Vec3> {x: 0.000000, y: 7.000000, z: 0.000000}
       windReferenceOffset: !<Vec3> {x: 0.000000, y: 24.000000, z: 0.000000}
       windGlobeMenuOffset: !<Vec3> {x: 0.000000, y: 10.000000, z: -8.000000}
-      carFlowDropDistance: !<float> 14.000000
-      carFlowTiltDegrees: !<float> 16.000000
+      aerodynamicsMenuOffset: !<Vec3> {x: 0.000000, y: -17.500000, z: -2.000000}
+      aerodynamicsMenuTiltDegrees: !<float> 0.000000
   ScriptTypes:
     -
       {}
@@ -148,5 +148,5 @@
     - '// @input vec3 magneticReferenceOffset = {0,7,0} {"hint":"Magnetism offset in calibrated plane-local space."}'
     - '// @input vec3 windReferenceOffset = {0,24,0} {"hint":"Wind globe offset in calibrated plane-local space."}'
     - '// @input vec3 windGlobeMenuOffset = {0,10,-8} {"hint":"Menu-relative Earth Winds globe staging. X = menu right, Y = above original menu anchor, Z = menu normal; negative Z tucks behind the menu."}'
-    - '// @input float carFlowDropDistance = 14 {"hint":"Push the car-flow slice down (cm) so you look at it from above and the depth-drag handles are easy to reach."}'
-    - '// @input float carFlowTiltDegrees = 16 {"hint":"Tilt the car-flow slice back (degrees) so the front/back drag axis has on-screen height. Flip the sign if it tilts the wrong way."}'
+    - '// @input vec3 aerodynamicsMenuOffset = {0,-17.5,-2} {"hint":"Menu-relative Aerodynamics staging. X = menu right, Y = below the menu, Z = menu normal; negative Z tucks behind the menu."}'
+    - '// @input float aerodynamicsMenuTiltDegrees {"hint":"Extra pitch for the menu-anchored aerodynamics field. Keep near zero when it should sit flush below the menu."}'

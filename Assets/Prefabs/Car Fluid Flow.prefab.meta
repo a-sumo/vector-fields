@@ -1021,6 +1021,7 @@
   Enabled: true
   ScriptAsset: !<reference> 96387e59-493a-40d3-9df9-a6fd05246c27
   ScriptInputsDefault:
+    dataSet: true
     renderMode: true
     ribbonWidth: true
     tubeColumns: true
@@ -1038,13 +1039,20 @@
     useSpeedColorMap: true
     colorMapScale: true
     colorMapOffset: true
+    showObstacleMaskOutline: true
+    maskGlyphsInsideObstacle: true
+    obstacleMaskOutlineWidth: true
+    obstacleMaskOutlineColor: true
     autoScrollSpeed: true
+    sliceControlObject: true
+    driveFromWorldPosition: true
     axis: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
     "":
       material: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
+      dataSet: !<float> 1.000000
       glyphMaterial: !<reference.Material> 8698a09e-f23c-43a9-b00d-804e33fe6fba
       renderMode: !<float> 0.000000
       planeWidth: 10.702000
@@ -1066,9 +1074,15 @@
       colorMap: !<float> 18.000000
       colorMapScale: !<float> 1.000000
       colorMapOffset: !<float> 0.000000
+      showObstacleMaskOutline: true
+      maskGlyphsInsideObstacle: true
+      obstacleMaskOutlineWidth: 0.055000
+      obstacleMaskOutlineColor: !<Vec4> {x: 0.000000, y: 1.000000, z: 1.000000, w: 0.950000}
       autoScroll: false
       autoScrollSpeed: 0.200000
       driveFromPosition: true
+      sliceControlObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      driveFromWorldPosition: true
       axis: 2
       travel: 3.635000
   ScriptTypes:

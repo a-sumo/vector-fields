@@ -165,7 +165,57 @@
     - !<own> 49fe10dc-40db-434e-9041-23f96b52d086
     - !<own> 45ff2643-4b42-4144-a5f2-1d42cd7f1a52
   Components:
+    - !<own> cb5f5e31-b668-4d08-8c3c-38b6236ddbb1
+- !<ScriptComponent/cb5f5e31-b668-4d08-8c3c-38b6236ddbb1>
+  PrefabRemaps:
     []
+  Name: LiveFoilFlow2D
+  Enabled: true
+  ScriptAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
+  ScriptInputsDefault:
+    liveEnabled: true
+    foilObject: true
+    planeWidth: true
+    planeHeight: true
+    updateHz: true
+    flowSpeed: true
+    invertFlowDirection: true
+    foilAngleDeg: true
+    foilCenterX: true
+    foilCenterY: true
+    foilChord01: true
+    obstacleShape: true
+    lineCount: true
+    lineSegments: true
+    lineWidth: true
+    dotScrollSpeed: true
+    flowColor: true
+    foilColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      liveEnabled: true
+      foilObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      planeWidth: !<float> 24.000000
+      planeHeight: 9.270000
+      updateHz: !<float> 15.000000
+      flowSpeed: 1.150000
+      invertFlowDirection: true
+      foilAngleDeg: !<float> 0.000000
+      foilCenterX: !<float> 0.000000
+      foilCenterY: !<float> 0.000000
+      foilChord01: 0.640000
+      obstacleShape: 0
+      lineCount: 9
+      lineSegments: 48
+      lineWidth: 0.055000
+      dotScrollSpeed: 1.600000
+      flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}
+      foilColor: !<Vec4> {x: 0.120000, y: 0.880000, z: 1.000000, w: 0.950000}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/2010495d-9de3-400e-b1ab-22e3f248a115>
   PrefabRemaps:
     []
@@ -200,7 +250,7 @@
   PrefabRemaps:
     []
   Name: GLTF_SceneRootNode
-  Enabled: true
+  Enabled: false
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: 0.000000, y: 0.000000, z: 0.000000}
@@ -367,7 +417,7 @@
   PrefabRemaps:
     []
   Name: Car Flow Lines
-  Enabled: true
+  Enabled: false
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: -0.320000, y: 0.950000, z: 0.000000}
@@ -524,7 +574,7 @@
     - f97381e3-5c85-406f-ad34-4b4e97d1464b: e8556cca-c488-4f89-4929-be3f76188fd3
     - fc197e85-69cf-4840-ac29-c9d7895f4da4: 6e55bc88-d007-4579-59f2-bea1cdf91717
   Name: racecar
-  Enabled: true
+  Enabled: false
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: 0.000000, y: 0.000000, z: 0.000000}
@@ -914,7 +964,7 @@
   PrefabRemaps:
     []
   Name: Sketchfab_model
-  Enabled: true
+  Enabled: false
   Layers: 1
   LocalTransform: !<TransformEntity>
     Position: {x: 0.000000, y: 0.000000, z: 0.000000}
