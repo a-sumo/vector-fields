@@ -49,7 +49,7 @@
     {}
   ScriptInputs:
     "":
-      liveEnabled: true
+      liveEnabled: false
       foilObject: !<reference.SceneObject> b938c669-cb82-417b-9d64-b390fc7a8d2e
       planeWidth: !<float> 24.000000
       planeHeight: 9.270000
@@ -61,8 +61,8 @@
       foilCenterY: !<float> 0.000000
       foilChord01: 0.640000
       obstacleShape: 0
-      lineCount: 9
-      lineSegments: 48
+      lineCount: 5
+      lineSegments: 38
       lineWidth: 0.055000
       dotScrollSpeed: 1.600000
       flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}

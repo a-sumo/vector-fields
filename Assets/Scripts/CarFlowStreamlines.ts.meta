@@ -76,20 +76,20 @@
       planeWidth: !<float> 24.000000
       planeHeight: 9.270000
       ribbonWidth: 0.100000
-      tubeColumns: 38
-      tubeRows: 16
-      tubeLength: 0.420000
-      tubeRadius: 0.035000
-      tubeRadialSegments: 6
+      tubeColumns: 26
+      tubeRows: 11
+      tubeLength: 0.520000
+      tubeRadius: 0.055000
+      tubeRadialSegments: 4
       tubeNormalLift: 0.045000
       phaseSpeed: 0.400000
       speedScaleRef: 1.500000
-      tubeGlyphPulseStrength: 0.450000
-      tubeGlyphTemporalBend: 0.160000
-      animateRibbonGlyphs: true
+      tubeGlyphPulseStrength: !<float> 0.000000
+      tubeGlyphTemporalBend: !<float> 0.000000
+      animateRibbonGlyphs: false
       glyphColor: !<Vec4> {x: 0.000000, y: 0.950000, z: 1.000000, w: 1.000000}
-      useSpeedColorMap: false
-      colorMap: !<float> 17.000000
+      useSpeedColorMap: true
+      colorMap: !<float> 18.000000
       colorMapScale: !<float> 1.000000
       colorMapOffset: !<float> 0.000000
       showObstacleMaskOutline: true
@@ -108,7 +108,7 @@
       {}
   InputLines:
     - // @input Asset.Material material
-    - '// @input float dataSet = 1 {"hint":"Offline CFD dataset used by the slice renderer.", "widget":"combobox", "values":[{"label":"Airfoil CFD", "value":1}, {"label":"Car CFD", "value":0}]}'
+    - '// @input float dataSet = 1 {"hint":"Offline CFD dataset used by the legacy slice renderer. Car data was removed to keep Lens TypeScript compilation small.", "widget":"combobox", "values":[{"label":"Airfoil CFD", "value":1}]}'
     - '// @input Asset.Material glyphMaterial {"hint":"Separate material for fast car-flow ribbon glyphs. Use a CarFlowRibbonGlyph shader material here."}'
     - '// @input float renderMode {"widget":"combobox", "values":[{"label":"Ribbon Glyphs", "value":0}, {"label":"Streamline Ribbons", "value":1}, {"label":"Debug Tubes", "value":2}]}'
     - // @input float planeWidth = 24

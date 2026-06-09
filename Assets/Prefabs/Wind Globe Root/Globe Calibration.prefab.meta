@@ -191,7 +191,7 @@
       markerRings: 14
       markerMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
       markerColor: !<Vec4> {x: 0.150000, y: 0.950000, z: 1.000000, w: 0.900000}
-      selectedMarkerColor: !<Vec4> {x: 1.000000, y: 0.720000, z: 0.180000, w: 1.000000}
+      selectedMarkerColor: !<Vec4> {x: 0.240000, y: 0.700000, z: 1.000000, w: 1.000000}
       useWindSpeedPalette: true
       selectedScaleMultiplier: 1.850000
       pulseAmount: 0.350000

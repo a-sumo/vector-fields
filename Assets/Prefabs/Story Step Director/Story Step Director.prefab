@@ -43,8 +43,9 @@
     gravityReferenceOffset: true
     magneticReferenceOffset: true
     windReferenceOffset: true
-    carFlowDropDistance: true
-    carFlowTiltDegrees: true
+    windGlobeMenuOffset: true
+    aerodynamicsMenuOffset: true
+    aerodynamicsMenuTiltDegrees: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -72,10 +73,9 @@
       initialVectorColorMap: !<float> 17.000000
       vectorColorMapScale: !<float> 1.000000
       vectorColorMapOffset: !<float> 0.000000
-      motionFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -30.000000}
       theoryVectorFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -50.000000}
-      analyticalTabletopOffset: !<Vec3> {x: 0.000000, y: -38.000000, z: -72.000000}
-      analyticalVectorFieldOffset: !<Vec3> {x: 0.000000, y: 12.000000, z: -24.000000}
+      analyticalTabletopOffset: !<Vec3> {x: 0.000000, y: -32.000000, z: 18.000000}
+      analyticalVectorFieldOffset: !<Vec3> {x: 0.000000, y: -24.000000, z: 18.000000}
       analyticalTabletopTiltDegrees: !<float> 10.000000
       theoryVectorScale: 0.850000
       gravityFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -82.000000}
@@ -84,8 +84,9 @@
       gravityReferenceOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: 0.000000}
       magneticReferenceOffset: !<Vec3> {x: 0.000000, y: 7.000000, z: 0.000000}
       windReferenceOffset: !<Vec3> {x: 0.000000, y: 24.000000, z: 0.000000}
-      carFlowDropDistance: !<float> 14.000000
-      carFlowTiltDegrees: !<float> 16.000000
+      windGlobeMenuOffset: !<Vec3> {x: 0.000000, y: 10.000000, z: -8.000000}
+      aerodynamicsMenuOffset: !<Vec3> {x: 0.000000, y: -17.500000, z: -2.000000}
+      aerodynamicsMenuTiltDegrees: !<float> 0.000000
   ScriptTypes:
     "":
       {}

@@ -67,8 +67,8 @@
       menuVisualScale: 1.550000
       menuVerticalOffsetCm: !<float> -7.000000
       menuLowerOffsetCm: !<float> -9.000000
-      weatherMenuDropCm: !<float> -15.000000
-      analyticalMenuLiftCm: !<float> 14.000000
+      weatherMenuDropCm: !<float> -28.000000
+      analyticalMenuLiftCm: !<float> 26.000000
       weatherLayoutSmoothing: !<float> 8.000000
       menuHorizontalOffsetCm: !<float> 0.000000
       menuBillboardPitchBlend: 0.350000

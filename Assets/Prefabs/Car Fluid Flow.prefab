@@ -166,56 +166,6 @@
     - !<own> 45ff2643-4b42-4144-a5f2-1d42cd7f1a52
   Components:
     - !<own> cb5f5e31-b668-4d08-8c3c-38b6236ddbb1
-- !<ScriptComponent/cb5f5e31-b668-4d08-8c3c-38b6236ddbb1>
-  PrefabRemaps:
-    []
-  Name: LiveFoilFlow2D
-  Enabled: true
-  ScriptAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
-  ScriptInputsDefault:
-    liveEnabled: true
-    foilObject: true
-    planeWidth: true
-    planeHeight: true
-    updateHz: true
-    flowSpeed: true
-    invertFlowDirection: true
-    foilAngleDeg: true
-    foilCenterX: true
-    foilCenterY: true
-    foilChord01: true
-    obstacleShape: true
-    lineCount: true
-    lineSegments: true
-    lineWidth: true
-    dotScrollSpeed: true
-    flowColor: true
-    foilColor: true
-  ScriptTypesDefault:
-    {}
-  ScriptInputs:
-    "":
-      liveEnabled: true
-      foilObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
-      planeWidth: !<float> 24.000000
-      planeHeight: 9.270000
-      updateHz: !<float> 15.000000
-      flowSpeed: 1.150000
-      invertFlowDirection: true
-      foilAngleDeg: !<float> 0.000000
-      foilCenterX: !<float> 0.000000
-      foilCenterY: !<float> 0.000000
-      foilChord01: 0.640000
-      obstacleShape: 0
-      lineCount: 9
-      lineSegments: 48
-      lineWidth: 0.055000
-      dotScrollSpeed: 1.600000
-      flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}
-      foilColor: !<Vec4> {x: 0.120000, y: 0.880000, z: 1.000000, w: 0.950000}
-  ScriptTypes:
-    "":
-      {}
 - !<SceneObject/2010495d-9de3-400e-b1ab-22e3f248a115>
   PrefabRemaps:
     []
@@ -1082,6 +1032,56 @@
   BlendNormals: false
   BlendShapes:
     {}
+- !<ScriptComponent/cb5f5e31-b668-4d08-8c3c-38b6236ddbb1>
+  PrefabRemaps:
+    []
+  Name: LiveFoilFlow2D
+  Enabled: true
+  ScriptAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
+  ScriptInputsDefault:
+    liveEnabled: true
+    foilObject: true
+    planeWidth: true
+    planeHeight: true
+    updateHz: true
+    flowSpeed: true
+    invertFlowDirection: true
+    foilAngleDeg: true
+    foilCenterX: true
+    foilCenterY: true
+    foilChord01: true
+    obstacleShape: true
+    lineCount: true
+    lineSegments: true
+    lineWidth: true
+    dotScrollSpeed: true
+    flowColor: true
+    foilColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      liveEnabled: false
+      foilObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      planeWidth: !<float> 24.000000
+      planeHeight: 9.270000
+      updateHz: !<float> 15.000000
+      flowSpeed: 1.150000
+      invertFlowDirection: true
+      foilAngleDeg: !<float> 0.000000
+      foilCenterX: !<float> 0.000000
+      foilCenterY: !<float> 0.000000
+      foilChord01: 0.640000
+      obstacleShape: 0
+      lineCount: 5
+      lineSegments: 38
+      lineWidth: 0.055000
+      dotScrollSpeed: 1.600000
+      flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}
+      foilColor: !<Vec4> {x: 0.120000, y: 0.880000, z: 1.000000, w: 0.950000}
+  ScriptTypes:
+    "":
+      {}
 - !<RenderMeshVisual/cdd3e00a-95fc-4035-abc2-35dd5c9d2c99>
   PrefabRemaps:
     []
@@ -1124,6 +1124,7 @@
   Enabled: true
   ScriptAsset: !<reference> 96387e59-493a-40d3-9df9-a6fd05246c27
   ScriptInputsDefault:
+    dataSet: true
     renderMode: true
     ribbonWidth: true
     tubeColumns: true
@@ -1139,39 +1140,53 @@
     animateRibbonGlyphs: true
     glyphColor: true
     useSpeedColorMap: true
+    colorMap: true
     colorMapScale: true
     colorMapOffset: true
+    showObstacleMaskOutline: true
+    maskGlyphsInsideObstacle: true
+    obstacleMaskOutlineWidth: true
+    obstacleMaskOutlineColor: true
     autoScrollSpeed: true
+    sliceControlObject: true
+    driveFromWorldPosition: true
     axis: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
     "":
       material: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
+      dataSet: !<float> 1.000000
       glyphMaterial: !<reference.Material> 8698a09e-f23c-43a9-b00d-804e33fe6fba
       renderMode: !<float> 0.000000
       planeWidth: 10.702000
       planeHeight: 3.947000
       ribbonWidth: 0.100000
-      tubeColumns: 38
-      tubeRows: 16
-      tubeLength: 0.420000
-      tubeRadius: 0.035000
-      tubeRadialSegments: 6
+      tubeColumns: 26
+      tubeRows: 11
+      tubeLength: 0.520000
+      tubeRadius: 0.055000
+      tubeRadialSegments: 4
       tubeNormalLift: 0.045000
       phaseSpeed: 0.400000
       speedScaleRef: 1.500000
-      tubeGlyphPulseStrength: 0.450000
-      tubeGlyphTemporalBend: 0.160000
-      animateRibbonGlyphs: true
+      tubeGlyphPulseStrength: !<float> 0.000000
+      tubeGlyphTemporalBend: !<float> 0.000000
+      animateRibbonGlyphs: false
       glyphColor: !<Vec4> {x: 0.000000, y: 0.950000, z: 1.000000, w: 1.000000}
-      useSpeedColorMap: false
+      useSpeedColorMap: true
       colorMap: !<float> 18.000000
       colorMapScale: !<float> 1.000000
       colorMapOffset: !<float> 0.000000
+      showObstacleMaskOutline: true
+      maskGlyphsInsideObstacle: true
+      obstacleMaskOutlineWidth: 0.055000
+      obstacleMaskOutlineColor: !<Vec4> {x: 0.000000, y: 1.000000, z: 1.000000, w: 0.950000}
       autoScroll: false
       autoScrollSpeed: 0.200000
       driveFromPosition: true
+      sliceControlObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      driveFromWorldPosition: true
       axis: 2
       travel: 3.635000
   ScriptTypes:

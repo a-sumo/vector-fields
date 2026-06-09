@@ -65,14 +65,14 @@
       dockUnderActiveVisual: true
       proxyDockPlacement: !<float> 0.000000
       visualDockGapCm: !<float> 8.000000
-      visualDockTowardUserCm: !<float> 10.000000
+      visualDockTowardUserCm: !<float> 18.000000
       visualDockScaleFromBounds: 0.100000
       minVisualDockScaleMultiplier: 0.700000
       maxVisualDockScaleMultiplier: 1.450000
       dockSmoothing: !<float> 12.000000
       dockTweenSeconds: 0.380000
       hideWhenNoActiveVisual: true
-      autoActivateOnVisualSelected: true
+      autoActivateOnVisualSelected: false
       autoActivateReadyFrames: !<float> 3.000000
       activationBlinkSeconds: 2.500000
       driveScale: true

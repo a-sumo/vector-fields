@@ -173,11 +173,13 @@
     dockUnderActiveVisual: true
     proxyDockPlacement: true
     visualDockGapCm: true
+    visualDockTowardUserCm: true
     visualDockScaleFromBounds: true
     minVisualDockScaleMultiplier: true
     maxVisualDockScaleMultiplier: true
     dockSmoothing: true
     dockTweenSeconds: true
+    autoActivateOnVisualSelected: true
     autoActivateReadyFrames: true
     activationBlinkSeconds: true
     driveScale: true

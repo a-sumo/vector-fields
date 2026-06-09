@@ -404,6 +404,7 @@
     planeSize: true
     arrowResolution: true
     artemisTrajectoryScale: true
+    artemisCursorColor: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -434,7 +435,7 @@
       artemisPlannedMaterial: !<reference.Material> e2c46eb5-bedf-45a8-ae3b-649d803febba
       artemisCompletionMaterial: !<reference.Material> 770ac6bb-e3d4-4f51-b454-a533ee8798da
       artemisCursorMaterial: !<reference.Material> d0ad7d8a-f84e-4054-9372-56b4b9004490
-      artemisCursorColor: !<Vec4> {x: 0.000000, y: 0.864576, z: 0.965362, w: 1.000000}
+      artemisCursorColor: !<Vec4> {x: 0.920000, y: 1.000000, z: 1.000000, w: 1.000000}
       initialStage: !<float> 0.000000
   ScriptTypes:
     "":
@@ -461,6 +462,8 @@
   Enabled: true
   ScriptAsset: !<reference> 96387e59-493a-40d3-9df9-a6fd05246c27
   ScriptInputsDefault:
+    dataSet: true
+    glyphMaterial: true
     renderMode: true
     ribbonWidth: true
     tubeColumns: true
@@ -476,39 +479,53 @@
     animateRibbonGlyphs: true
     glyphColor: true
     useSpeedColorMap: true
+    colorMap: true
     colorMapScale: true
     colorMapOffset: true
+    showObstacleMaskOutline: true
+    maskGlyphsInsideObstacle: true
+    obstacleMaskOutlineWidth: true
+    obstacleMaskOutlineColor: true
     autoScrollSpeed: true
+    sliceControlObject: true
+    driveFromWorldPosition: true
     axis: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
     "":
       material: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
-      glyphMaterial: !<reference.Material> 8698a09e-f23c-43a9-b00d-804e33fe6fba
+      dataSet: !<float> 1.000000
+      glyphMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
       renderMode: !<float> 0.000000
       planeWidth: 10.702000
       planeHeight: 3.947000
       ribbonWidth: 0.100000
-      tubeColumns: 38
-      tubeRows: 16
-      tubeLength: 0.420000
-      tubeRadius: 0.035000
-      tubeRadialSegments: 6
+      tubeColumns: 26
+      tubeRows: 11
+      tubeLength: 0.520000
+      tubeRadius: 0.055000
+      tubeRadialSegments: 4
       tubeNormalLift: 0.045000
       phaseSpeed: 0.400000
       speedScaleRef: 1.500000
-      tubeGlyphPulseStrength: 0.450000
-      tubeGlyphTemporalBend: 0.160000
-      animateRibbonGlyphs: true
+      tubeGlyphPulseStrength: !<float> 0.000000
+      tubeGlyphTemporalBend: !<float> 0.000000
+      animateRibbonGlyphs: false
       glyphColor: !<Vec4> {x: 0.000000, y: 0.950000, z: 1.000000, w: 1.000000}
-      useSpeedColorMap: false
+      useSpeedColorMap: true
       colorMap: !<float> 18.000000
       colorMapScale: !<float> 1.000000
       colorMapOffset: !<float> 0.000000
+      showObstacleMaskOutline: true
+      maskGlyphsInsideObstacle: true
+      obstacleMaskOutlineWidth: 0.055000
+      obstacleMaskOutlineColor: !<Vec4> {x: 0.000000, y: 1.000000, z: 1.000000, w: 0.950000}
       autoScroll: false
       autoScrollSpeed: 0.200000
       driveFromPosition: true
+      sliceControlObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      driveFromWorldPosition: true
       axis: 2
       travel: 3.635000
   ScriptTypes:
@@ -1425,7 +1442,7 @@
       markerRings: 14
       markerMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
       markerColor: !<Vec4> {x: 0.150000, y: 0.950000, z: 1.000000, w: 0.900000}
-      selectedMarkerColor: !<Vec4> {x: 1.000000, y: 0.720000, z: 0.180000, w: 1.000000}
+      selectedMarkerColor: !<Vec4> {x: 0.240000, y: 0.700000, z: 1.000000, w: 1.000000}
       useWindSpeedPalette: true
       selectedScaleMultiplier: 1.850000
       pulseAmount: 0.350000
@@ -1949,11 +1966,13 @@
     dockUnderActiveVisual: true
     proxyDockPlacement: true
     visualDockGapCm: true
+    visualDockTowardUserCm: true
     visualDockScaleFromBounds: true
     minVisualDockScaleMultiplier: true
     maxVisualDockScaleMultiplier: true
     dockSmoothing: true
     dockTweenSeconds: true
+    autoActivateOnVisualSelected: true
     autoActivateReadyFrames: true
     activationBlinkSeconds: true
     driveScale: true
@@ -4388,7 +4407,7 @@
       menuVerticalOffsetCm: !<float> -15.000000
       menuLowerOffsetCm: !<float> -14.000000
       weatherMenuDropCm: !<float> -28.000000
-      analyticalMenuLiftCm: !<float> 14.000000
+      analyticalMenuLiftCm: !<float> 26.000000
       weatherLayoutSmoothing: !<float> 8.000000
       menuHorizontalOffsetCm: !<float> 0.000000
       menuBillboardPitchBlend: 0.350000
@@ -4693,56 +4712,6 @@
     - !<own> 0b6a6847-33e7-4426-8d0f-b1439e97c835
   Components:
     - !<own> a17f8e7d-c0cc-4f9c-8f7d-1d515adcf201
-- !<ScriptComponent/a17f8e7d-c0cc-4f9c-8f7d-1d515adcf201>
-  PrefabRemaps:
-    []
-  Name: LiveFoilFlow2D
-  Enabled: true
-  ScriptAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
-  ScriptInputsDefault:
-    liveEnabled: true
-    foilObject: true
-    planeWidth: true
-    planeHeight: true
-    updateHz: true
-    flowSpeed: true
-    invertFlowDirection: true
-    foilAngleDeg: true
-    foilCenterX: true
-    foilCenterY: true
-    foilChord01: true
-    obstacleShape: true
-    lineCount: true
-    lineSegments: true
-    lineWidth: true
-    dotScrollSpeed: true
-    flowColor: true
-    foilColor: true
-  ScriptTypesDefault:
-    {}
-  ScriptInputs:
-    "":
-      liveEnabled: true
-      foilObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
-      planeWidth: !<float> 24.000000
-      planeHeight: 9.270000
-      updateHz: !<float> 15.000000
-      flowSpeed: 1.150000
-      invertFlowDirection: true
-      foilAngleDeg: !<float> 0.000000
-      foilCenterX: !<float> 0.000000
-      foilCenterY: !<float> 0.000000
-      foilChord01: 0.640000
-      obstacleShape: 0
-      lineCount: 9
-      lineSegments: 48
-      lineWidth: 0.055000
-      dotScrollSpeed: 1.600000
-      flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}
-      foilColor: !<Vec4> {x: 0.120000, y: 0.880000, z: 1.000000, w: 0.950000}
-  ScriptTypes:
-    "":
-      {}
 - !<SceneObject/9698ac20-c937-4d21-94d4-7705e13be774>
   PrefabRemaps:
     []
@@ -5036,6 +5005,53 @@
   Components:
     - !<own> 06909430-e8fb-48ec-9119-fd0c797aa7f8
     - !<own> ab5beb4a-05a6-4062-b960-bcbbefabe29d
+- !<ScriptComponent/a17f8e7d-c0cc-4f9c-8f7d-1d515adcf201>
+  PrefabRemaps:
+    []
+  Name: LiveFoilFlow2D
+  Enabled: true
+  ScriptAsset: !<reference> acec5d33-fcd3-4f5b-bfd1-24b666e43499
+  ScriptInputsDefault:
+    foilObject: true
+    planeWidth: true
+    planeHeight: true
+    updateHz: true
+    flowSpeed: true
+    invertFlowDirection: true
+    foilAngleDeg: true
+    foilCenterX: true
+    foilCenterY: true
+    foilChord01: true
+    obstacleShape: true
+    lineWidth: true
+    dotScrollSpeed: true
+    flowColor: true
+    foilColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      liveEnabled: true
+      foilObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      planeWidth: !<float> 24.000000
+      planeHeight: 9.270000
+      updateHz: !<float> 15.000000
+      flowSpeed: 1.150000
+      invertFlowDirection: true
+      foilAngleDeg: !<float> 0.000000
+      foilCenterX: !<float> 0.000000
+      foilCenterY: !<float> 0.000000
+      foilChord01: 0.640000
+      obstacleShape: 0
+      lineCount: 9
+      lineSegments: 48
+      lineWidth: 0.055000
+      dotScrollSpeed: 1.600000
+      flowColor: !<Vec4> {x: 0.180000, y: 1.000000, z: 0.460000, w: 0.820000}
+      foilColor: !<Vec4> {x: 0.120000, y: 0.880000, z: 1.000000, w: 0.950000}
+  ScriptTypes:
+    "":
+      {}
 - !<ScriptComponent/a18c8379-b276-4540-81c1-eebd0b95229a>
   PrefabRemaps:
     []
@@ -5055,13 +5071,14 @@
     vectorColorMapScale: true
     vectorColorMapOffset: true
     analyticalTabletopOffset: true
+    analyticalVectorFieldOffset: true
     analyticalTabletopTiltDegrees: true
     gravityReferenceOffset: true
     magneticReferenceOffset: true
     windReferenceOffset: true
     windGlobeMenuOffset: true
-    carFlowDropDistance: true
-    carFlowTiltDegrees: true
+    aerodynamicsMenuOffset: true
+    aerodynamicsMenuTiltDegrees: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -5090,8 +5107,8 @@
       vectorColorMapScale: !<float> 1.000000
       vectorColorMapOffset: !<float> 0.000000
       theoryVectorFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -50.000000}
-      analyticalTabletopOffset: !<Vec3> {x: 0.000000, y: -38.000000, z: -72.000000}
-      analyticalVectorFieldOffset: !<Vec3> {x: 0.000000, y: -10.000000, z: 25.000000}
+      analyticalTabletopOffset: !<Vec3> {x: 0.000000, y: -32.000000, z: 18.000000}
+      analyticalVectorFieldOffset: !<Vec3> {x: 0.000000, y: -24.000000, z: 18.000000}
       analyticalTabletopTiltDegrees: !<float> 10.000000
       theoryVectorScale: 0.850000
       gravityFrontOffset: !<Vec3> {x: 0.000000, y: 0.000000, z: -82.000000}
@@ -5101,8 +5118,8 @@
       magneticReferenceOffset: !<Vec3> {x: 0.000000, y: 7.000000, z: 0.000000}
       windReferenceOffset: !<Vec3> {x: 0.000000, y: 24.000000, z: 0.000000}
       windGlobeMenuOffset: !<Vec3> {x: 0.000000, y: 10.000000, z: -8.000000}
-      carFlowDropDistance: !<float> 14.000000
-      carFlowTiltDegrees: !<float> 16.000000
+      aerodynamicsMenuOffset: !<Vec3> {x: 0.000000, y: -17.500000, z: -2.000000}
+      aerodynamicsMenuTiltDegrees: !<float> 0.000000
   ScriptTypes:
     "":
       {}
@@ -5462,9 +5479,14 @@
   ScriptInputsDefault:
     earthMass: true
     useSurfaceTubeGlyphs: true
+    tubeColumns: true
+    tubeRows: true
+    tubeLengthSegments: true
+    tubeRadialSegments: true
     tubeLength: true
     tubeRadius: true
     tubeSurfaceLift: true
+    tubeRebuildFps: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -5493,7 +5515,7 @@
       fieldLineDensity: 1.250000
       fieldLineWidth: 0.090000
       useSurfaceTubeGlyphs: true
-      surfaceTubeMaterial: !<reference.Material> 1f478ce0-2e3b-4101-aec6-56849738739a
+      surfaceTubeMaterial: !<reference.Material> 6b93edd3-80a7-493c-ad6f-624202005066
       tubeColumns: !<float> 7.000000
       tubeRows: !<float> 11.000000
       tubeLengthSegments: !<float> 3.000000

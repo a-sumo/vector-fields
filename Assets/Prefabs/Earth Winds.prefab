@@ -123,7 +123,6 @@
     markerRings: true
     markerMaterial: true
     markerColor: true
-    selectedMarkerColor: true
     useWindSpeedPalette: true
     selectedScaleMultiplier: true
     pulseAmount: true

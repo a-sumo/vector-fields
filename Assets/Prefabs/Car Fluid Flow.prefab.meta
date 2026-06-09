@@ -1037,6 +1037,7 @@
     animateRibbonGlyphs: true
     glyphColor: true
     useSpeedColorMap: true
+    colorMap: true
     colorMapScale: true
     colorMapOffset: true
     showObstacleMaskOutline: true
@@ -1058,19 +1059,19 @@
       planeWidth: 10.702000
       planeHeight: 3.947000
       ribbonWidth: 0.100000
-      tubeColumns: 38
-      tubeRows: 16
-      tubeLength: 0.420000
-      tubeRadius: 0.035000
-      tubeRadialSegments: 6
+      tubeColumns: 26
+      tubeRows: 11
+      tubeLength: 0.520000
+      tubeRadius: 0.055000
+      tubeRadialSegments: 4
       tubeNormalLift: 0.045000
       phaseSpeed: 0.400000
       speedScaleRef: 1.500000
-      tubeGlyphPulseStrength: 0.450000
-      tubeGlyphTemporalBend: 0.160000
-      animateRibbonGlyphs: true
+      tubeGlyphPulseStrength: !<float> 0.000000
+      tubeGlyphTemporalBend: !<float> 0.000000
+      animateRibbonGlyphs: false
       glyphColor: !<Vec4> {x: 0.000000, y: 0.950000, z: 1.000000, w: 1.000000}
-      useSpeedColorMap: false
+      useSpeedColorMap: true
       colorMap: !<float> 18.000000
       colorMapScale: !<float> 1.000000
       colorMapOffset: !<float> 0.000000
