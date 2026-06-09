@@ -1,4 +1,3 @@
-import { CAR_CFD_TIME_SERIES } from "./CarCfdTimeSeries";
 import { AIRFOIL_CFD_TIME_SERIES } from "./AirfoilCfdTimeSeries";
 
 const DEFAULT_TUBE_MATERIAL: Material = requireAsset("../OrientedTubeGlyph.mat") as Material;
@@ -12,9 +11,8 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   @input
   @widget(new ComboBoxWidget([
     new ComboBoxItem("Airfoil CFD", 1),
-    new ComboBoxItem("Car CFD", 0),
   ]))
-  @hint("Offline CFD dataset used by the slice renderer.")
+  @hint("Offline CFD dataset used by the legacy slice renderer. Car data was removed to keep Lens TypeScript compilation small.")
   dataSet: number = 1;
   @input
   @allowUndefined
@@ -106,11 +104,11 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   private activeDataSet: number = -1;
 
   private cfdData(): any {
-    return Math.floor(this.dataSet) === 0 ? CAR_CFD_TIME_SERIES : AIRFOIL_CFD_TIME_SERIES;
+    return AIRFOIL_CFD_TIME_SERIES;
   }
 
   private refreshDataSetIfNeeded(): void {
-    const dataSet = Math.floor(this.dataSet) === 0 ? 0 : 1;
+    const dataSet = 1;
     if (dataSet === this.activeDataSet) return;
     this.activeDataSet = dataSet;
     const data = this.cfdData();
@@ -149,7 +147,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
       refreshSliceHome: () => self.captureSliceHome(),
       setSlice01: (value: number) => self.setSlice01(value),
       setDataSet: (value: number | string) => self.setDataSet(value),
-      setCarDataSet: () => self.setDataSet(0),
+      setCarDataSet: () => self.setDataSet(1),
       setAirfoilDataSet: () => self.setDataSet(1),
       refreshObstacleContour: () => self.refreshObstacleContour(),
       rebuildObstacleContour: () => self.refreshObstacleContour(),
@@ -186,13 +184,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   }
 
   public setDataSet(value: number | string): void {
-    let next = 1;
-    if (typeof value === "number") {
-      next = Math.floor(value) === 0 ? 0 : 1;
-    } else {
-      const key = ("" + value).toLowerCase();
-      next = key === "car" || key === "car_cfd" || key === "baked_car" || key === "0" ? 0 : 1;
-    }
+    const next = 1;
     const currentSlice01 = this.slice01FromControl();
     if (Math.floor(this.dataSet) === next && this.activeDataSet === next) {
       this.refreshObstacleContour();
@@ -615,7 +607,7 @@ export class CarFlowStreamlines extends BaseScriptComponent {
   }
 
   private updateObstacleMaskOutline(sliceIndex: number): void {
-    const dataSet = Math.floor(this.dataSet) === 0 ? 0 : 1;
+    const dataSet = 1;
     if (this.obstacleOutlineBuilt && this.obstacleOutlineSlice === sliceIndex && this.obstacleOutlineDataSet === dataSet) {
       this.updateObstacleMaskOutlineVisibility();
       return;
