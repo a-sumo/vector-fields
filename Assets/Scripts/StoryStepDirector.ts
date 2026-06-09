@@ -657,6 +657,8 @@ export class StoryStepDirector extends BaseScriptComponent {
         const showTheorySelection = step.id !== "theory" || this.theoryFieldSelected;
         const showTheoryPlane = step.id === "theory" && showTheorySelection && theoryMode.id === "motion";
         const showTheoryField = step.id === "theory" && showTheorySelection && theoryMode.id !== "motion";
+        const motionPlaneWasVisible = motionRoot ? motionRoot.enabled : false;
+        const theoryFieldWasVisible = vectorRoot ? vectorRoot.enabled : false;
 
         this.setEnabled(motionRoot, showTheoryPlane);
         this.setEnabled(vectorRoot, showTheoryField);
@@ -674,12 +676,12 @@ export class StoryStepDirector extends BaseScriptComponent {
         this.setProxyVisualEnabled("Proxy_Divergence_Readout_Slot", !showTheoryPlane && !showTheoryField);
 
         if (showTheoryPlane) {
-            this.placeMotionPlane(motionRoot);
+            if (!motionPlaneWasVisible) this.placeMotionPlane(motionRoot);
             this.callLifecycle(motionRoot, "stage");
             this.applyTheoryMotionFieldMode(motionRoot);
         }
         if (showTheoryField) {
-            this.placeTheoryVectorField(vectorRoot);
+            if (!theoryFieldWasVisible) this.placeTheoryVectorField(vectorRoot);
             this.applyTheoryVectorFieldMode(vectorRoot);
         }
         if (!showTheoryPlane) {
