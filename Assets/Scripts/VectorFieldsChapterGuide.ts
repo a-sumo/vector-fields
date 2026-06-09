@@ -4352,6 +4352,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
                         this.disableVectorFieldBoundsColliders(root);
                         this.setOwnCollidersEnabled(root, true);
                         this.setOwnInteractableScriptsEnabled(root, true);
+                        this.restoreVectorFieldTarget();
                     }
                     if (!rootMoveEnabled && !(rootName === "Vector Field Examples Root" && this.theoryMenuOpen && this.selectedTheoryCard === "patterns" && this.selectedTheoryMode !== "motion")) {
                         this.setOwnCollidersEnabled(root, false);
