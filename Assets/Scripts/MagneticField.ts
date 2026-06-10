@@ -628,6 +628,7 @@ export class MagneticFieldTubes extends BaseScriptComponent {
         const y = -halfExtent - 0.12;
         const bracketLength = Math.max(0.55, halfExtent * 0.34);
         const width = Math.max(0.018, this._radius * 0.42);
+        const bendRadius = Math.max(width * 3.2, bracketLength * 0.28);
         const meshBuilder = new MeshBuilder([
             { name: "position", components: 3 },
             { name: "normal", components: 3 },
@@ -636,10 +637,10 @@ export class MagneticFieldTubes extends BaseScriptComponent {
         meshBuilder.topology = MeshTopology.Triangles;
         meshBuilder.indexType = MeshIndexType.UInt16;
 
-        this.addAffordanceCorner(meshBuilder, -halfExtent, y, -halfExtent, 1.0, 1.0, bracketLength, width);
-        this.addAffordanceCorner(meshBuilder, halfExtent, y, -halfExtent, -1.0, 1.0, bracketLength, width);
-        this.addAffordanceCorner(meshBuilder, halfExtent, y, halfExtent, -1.0, -1.0, bracketLength, width);
-        this.addAffordanceCorner(meshBuilder, -halfExtent, y, halfExtent, 1.0, -1.0, bracketLength, width);
+        this.addAffordanceCorner(meshBuilder, -halfExtent, y, -halfExtent, 1.0, 1.0, bracketLength, width, bendRadius);
+        this.addAffordanceCorner(meshBuilder, halfExtent, y, -halfExtent, -1.0, 1.0, bracketLength, width, bendRadius);
+        this.addAffordanceCorner(meshBuilder, halfExtent, y, halfExtent, -1.0, -1.0, bracketLength, width, bendRadius);
+        this.addAffordanceCorner(meshBuilder, -halfExtent, y, halfExtent, 1.0, -1.0, bracketLength, width, bendRadius);
 
         if (meshBuilder.isValid()) {
             visual.mesh = meshBuilder.getMesh();
@@ -673,12 +674,24 @@ export class MagneticFieldTubes extends BaseScriptComponent {
         return this.manipulatorAffordanceVisual;
     }
 
-    private addAffordanceCorner(mb: MeshBuilder, x: number, y: number, z: number, sx: number, sz: number, length: number, width: number): void {
-        const corner = new vec3(x, y, z);
-        const alongX = new vec3(x + sx * length, y, z);
-        const alongZ = new vec3(x, y, z + sz * length);
-        this.addAffordanceSegment(mb, corner, alongX, width);
-        this.addAffordanceSegment(mb, corner, alongZ, width);
+    private addAffordanceCorner(mb: MeshBuilder, x: number, y: number, z: number, sx: number, sz: number, length: number, width: number, bendRadius: number): void {
+        const bend = Math.min(Math.max(width * 2.0, bendRadius), length * 0.48);
+        const path: vec3[] = [];
+        path.push(new vec3(x + sx * length, y, z));
+        path.push(new vec3(x + sx * bend, y, z));
+
+        const steps = 6;
+        for (let i = 1; i < steps; i++) {
+            const t = i / steps;
+            const inv = 1.0 - t;
+            const px = inv * inv * (x + sx * bend) + 2.0 * inv * t * x + t * t * x;
+            const pz = inv * inv * z + 2.0 * inv * t * z + t * t * (z + sz * bend);
+            path.push(new vec3(px, y, pz));
+        }
+
+        path.push(new vec3(x, y, z + sz * bend));
+        path.push(new vec3(x, y, z + sz * length));
+        this.addAffordanceTubePath(mb, path, width, 6);
     }
 
     private addAffordanceSegment(mb: MeshBuilder, a: vec3, b: vec3, width: number): void {
@@ -694,6 +707,53 @@ export class MagneticFieldTubes extends BaseScriptComponent {
         this.appendAffordanceVertex(mb, new vec3(b.x - px, b.y, b.z - pz), 1.0, 1.0);
         this.appendAffordanceVertex(mb, new vec3(b.x + px, b.y, b.z + pz), 1.0, 0.0);
         mb.appendIndices([i, i + 1, i + 2, i, i + 2, i + 3]);
+    }
+
+    private addAffordanceTubePath(mb: MeshBuilder, path: vec3[], radius: number, radialSegments: number): void {
+        if (!path || path.length < 2) return;
+        const radial = Math.max(4, Math.floor(radialSegments));
+        const base = mb.getVerticesCount();
+
+        for (let ring = 0; ring < path.length; ring++) {
+            const prev = path[Math.max(0, ring - 1)];
+            const center = path[ring];
+            const next = path[Math.min(path.length - 1, ring + 1)];
+            const tangent = this.normalizeXZ(next.x - prev.x, next.z - prev.z);
+            const side = new vec3(-tangent.z, 0.0, tangent.x);
+            const up = new vec3(0.0, 1.0, 0.0);
+
+            for (let i = 0; i < radial; i++) {
+                const a = (i / radial) * Math.PI * 2.0;
+                const normal = new vec3(
+                    side.x * Math.cos(a) + up.x * Math.sin(a),
+                    side.y * Math.cos(a) + up.y * Math.sin(a),
+                    side.z * Math.cos(a) + up.z * Math.sin(a)
+                );
+                this.appendAffordanceVertex(
+                    mb,
+                    new vec3(center.x + normal.x * radius, center.y + normal.y * radius, center.z + normal.z * radius),
+                    ring / Math.max(1, path.length - 1),
+                    i / radial
+                );
+            }
+        }
+
+        for (let ring = 0; ring < path.length - 1; ring++) {
+            for (let i = 0; i < radial; i++) {
+                const nextI = (i + 1) % radial;
+                const a = base + ring * radial + i;
+                const b = base + ring * radial + nextI;
+                const c = base + (ring + 1) * radial + i;
+                const d = base + (ring + 1) * radial + nextI;
+                mb.appendIndices([a, c, b, b, c, d]);
+            }
+        }
+    }
+
+    private normalizeXZ(x: number, z: number): vec3 {
+        const len = Math.sqrt(x * x + z * z);
+        if (len < 0.0001) return new vec3(1.0, 0.0, 0.0);
+        return new vec3(x / len, 0.0, z / len);
     }
 
     private appendAffordanceVertex(mb: MeshBuilder, position: vec3, u: number, v: number): void {

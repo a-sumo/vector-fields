@@ -20,6 +20,8 @@ const PROXY_OUTLINE_CHILD_NAME = "__ProxyActiveTubeOutline";
 const PROXY_OUTLINE_RADIUS = 0.018;
 const PROXY_OUTLINE_LIFT = 0.055;
 const PROXY_OUTLINE_SEGMENTS = 8;
+const PROXY_OUTLINE_BEND_RADIUS = 0.085;
+const PROXY_OUTLINE_BEND_SEGMENTS = 7;
 const PROXY_DOCK_AUTO = 0;
 const PROXY_DOCK_TABLETOP = 1;
 const PROXY_DOCK_HAND_REACH = 2;
@@ -904,16 +906,12 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         mb.topology = MeshTopology.Triangles;
         mb.indexType = MeshIndexType.UInt16;
 
-        const hx = 0.5;
-        const hy = 0.5;
+        const inset = PROXY_OUTLINE_RADIUS * 1.6;
+        const hx = 0.5 - inset;
+        const hy = 0.5 - inset;
+        const cornerRadius = Math.max(0.01, PROXY_OUTLINE_BEND_RADIUS - inset);
 
-        this.addProxyPlaneFace(
-            mb,
-            new vec3(-hx, -hy, 0.0),
-            new vec3(hx, -hy, 0.0),
-            new vec3(hx, hy, 0.0),
-            new vec3(-hx, hy, 0.0)
-        );
+        this.addRoundedProxyPlaneFace(mb, hx, hy, cornerRadius, 8, 0.0);
         return mb;
     }
 
@@ -929,54 +927,82 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         const hx = 0.5;
         const hy = 0.5;
         const z = PROXY_OUTLINE_LIFT;
-        const radius = PROXY_OUTLINE_RADIUS;
-        const segments = PROXY_OUTLINE_SEGMENTS;
-
-        this.appendOutlineTubeSegment(mb, new vec3(-hx, -hy, z), new vec3(hx, -hy, z), radius, segments);
-        this.appendOutlineTubeSegment(mb, new vec3(hx, -hy, z), new vec3(hx, hy, z), radius, segments);
-        this.appendOutlineTubeSegment(mb, new vec3(hx, hy, z), new vec3(-hx, hy, z), radius, segments);
-        this.appendOutlineTubeSegment(mb, new vec3(-hx, hy, z), new vec3(-hx, -hy, z), radius, segments);
+        this.appendRoundedOutlineTubeLoop(
+            mb,
+            hx,
+            hy,
+            z,
+            PROXY_OUTLINE_RADIUS,
+            PROXY_OUTLINE_SEGMENTS,
+            PROXY_OUTLINE_BEND_RADIUS,
+            PROXY_OUTLINE_BEND_SEGMENTS
+        );
         return mb;
     }
 
-    private appendOutlineTubeSegment(mb: MeshBuilder, start: vec3, end: vec3, radius: number, segments: number): void {
-        const axis = this.subVec3(end, start);
-        const length = this.lenVec3(axis);
-        if (length < 0.001) return;
-        const dir = this.scaleVec3(axis, 1.0 / length);
-        const frame = this.frameForAxis(dir);
+    private appendRoundedOutlineTubeLoop(
+        mb: MeshBuilder,
+        hx: number,
+        hy: number,
+        z: number,
+        radius: number,
+        radialSegments: number,
+        bendRadius: number,
+        bendSegments: number
+    ): void {
+        const path: vec3[] = [];
+        const r = Math.min(Math.max(radius * 2.0, bendRadius), Math.min(hx, hy) * 0.42);
+        const cornerSegments = Math.max(3, Math.floor(bendSegments));
+
+        this.addOutlineArc(path, hx - r, -hy + r, r, -0.5 * Math.PI, 0.0, cornerSegments, z);
+        this.addOutlineArc(path, hx - r, hy - r, r, 0.0, 0.5 * Math.PI, cornerSegments, z);
+        this.addOutlineArc(path, -hx + r, hy - r, r, 0.5 * Math.PI, Math.PI, cornerSegments, z);
+        this.addOutlineArc(path, -hx + r, -hy + r, r, Math.PI, 1.5 * Math.PI, cornerSegments, z);
+
+        this.appendOutlineTubeLoop(mb, path, radius, Math.max(4, Math.floor(radialSegments)));
+    }
+
+    private addOutlineArc(path: vec3[], cx: number, cy: number, r: number, a0: number, a1: number, segments: number, z: number): void {
+        for (let i = 0; i <= segments; i++) {
+            if (path.length > 0 && i === 0) continue;
+            const t = a0 + (a1 - a0) * (i / segments);
+            path.push(new vec3(cx + Math.cos(t) * r, cy + Math.sin(t) * r, z));
+        }
+    }
+
+    private appendOutlineTubeLoop(mb: MeshBuilder, path: vec3[], radius: number, radialSegments: number): void {
+        if (!path || path.length < 4) return;
         const base = mb.getVerticesCount();
 
-        for (let ring = 0; ring < 2; ring++) {
-            const center = ring === 0 ? start : end;
-            for (let i = 0; i < segments; i++) {
-                const a = (i / segments) * Math.PI * 2.0;
+        for (let ring = 0; ring < path.length; ring++) {
+            const prev = path[(ring + path.length - 1) % path.length];
+            const center = path[ring];
+            const next = path[(ring + 1) % path.length];
+            const tangent = this.normVec3(this.subVec3(next, prev));
+            const inPlaneNormal = this.normVec3(new vec3(-tangent.y, tangent.x, 0.0));
+            const outOfPlaneNormal = new vec3(0.0, 0.0, 1.0);
+
+            for (let i = 0; i < radialSegments; i++) {
+                const a = (i / radialSegments) * Math.PI * 2.0;
                 const normal = this.addVec3(
-                    this.scaleVec3(frame.x, Math.cos(a)),
-                    this.scaleVec3(frame.y, Math.sin(a))
+                    this.scaleVec3(inPlaneNormal, Math.cos(a)),
+                    this.scaleVec3(outOfPlaneNormal, Math.sin(a))
                 );
                 const p = this.addVec3(center, this.scaleVec3(normal, radius));
-                this.appendOutlineVertex(mb, p, normal, ring, i / segments);
+                this.appendOutlineVertex(mb, p, normal, ring / path.length, i / radialSegments);
             }
         }
 
-        for (let i = 0; i < segments; i++) {
-            const j = (i + 1) % segments;
-            const a = base + i;
-            const b = base + j;
-            const c = base + segments + i;
-            const d = base + segments + j;
-            mb.appendIndices([a, c, b, b, c, d]);
-        }
-
-        const startCenter = mb.getVerticesCount();
-        this.appendOutlineVertex(mb, start, this.scaleVec3(dir, -1.0), 0.5, 0.5);
-        const endCenter = mb.getVerticesCount();
-        this.appendOutlineVertex(mb, end, dir, 0.5, 0.5);
-        for (let i = 0; i < segments; i++) {
-            const j = (i + 1) % segments;
-            mb.appendIndices([startCenter, base + j, base + i]);
-            mb.appendIndices([endCenter, base + segments + i, base + segments + j]);
+        for (let ring = 0; ring < path.length; ring++) {
+            const nextRing = (ring + 1) % path.length;
+            for (let i = 0; i < radialSegments; i++) {
+                const nextI = (i + 1) % radialSegments;
+                const a = base + ring * radialSegments + i;
+                const b = base + ring * radialSegments + nextI;
+                const c = base + nextRing * radialSegments + i;
+                const d = base + nextRing * radialSegments + nextI;
+                mb.appendIndices([a, c, b, b, c, d]);
+            }
         }
     }
 
@@ -996,6 +1022,30 @@ export class ProxyVisualTransformController extends BaseScriptComponent {
         this.appendProxyVertex(mb, c, normal, 1.0, 1.0);
         this.appendProxyVertex(mb, d, normal, 0.0, 1.0);
         mb.appendIndices([base, base + 1, base + 2, base, base + 2, base + 3]);
+    }
+
+    private addRoundedProxyPlaneFace(mb: MeshBuilder, hx: number, hy: number, radius: number, segments: number, z: number): void {
+        const points: vec3[] = [];
+        const r = Math.min(Math.max(0.0, radius), Math.min(hx, hy) * 0.82);
+        const s = Math.max(3, Math.floor(segments));
+
+        this.addOutlineArc(points, hx - r, -hy + r, r, -0.5 * Math.PI, 0.0, s, z);
+        this.addOutlineArc(points, hx - r, hy - r, r, 0.0, 0.5 * Math.PI, s, z);
+        this.addOutlineArc(points, -hx + r, hy - r, r, 0.5 * Math.PI, Math.PI, s, z);
+        this.addOutlineArc(points, -hx + r, -hy + r, r, Math.PI, 1.5 * Math.PI, s, z);
+
+        const normal = new vec3(0.0, 0.0, 1.0);
+        const center = mb.getVerticesCount();
+        this.appendProxyVertex(mb, new vec3(0.0, 0.0, z), normal, 0.5, 0.5);
+        const base = mb.getVerticesCount();
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i];
+            this.appendProxyVertex(mb, p, normal, (p.x / (hx * 2.0)) + 0.5, (p.y / (hy * 2.0)) + 0.5);
+        }
+        for (let i = 0; i < points.length; i++) {
+            const next = (i + 1) % points.length;
+            mb.appendIndices([center, base + i, base + next]);
+        }
     }
 
     private appendProxyVertex(mb: MeshBuilder, position: vec3, normal: vec3, u: number, v: number): void {
