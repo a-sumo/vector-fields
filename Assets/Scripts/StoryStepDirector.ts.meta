@@ -42,6 +42,7 @@
     initialStep: false
     initialTheoryFieldMode: false
     initialVectorColorMap: false
+    liveFoilFlowRoot: false
     magneticFieldRoot: false
     magneticFrontOffset: false
     magneticReferenceOffset: false
@@ -77,6 +78,7 @@
       magneticFieldRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       gravityFieldRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       windGlobeRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      liveFoilFlowRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       applyOnStart: true
       initialStep: !<float> 0.000000
       cameraRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
@@ -118,6 +120,7 @@
     - '// @input SceneObject magneticFieldRoot {"hint":"Magnetic field example rig."}'
     - '// @input SceneObject gravityFieldRoot {"hint":"Gravity field example rig."}'
     - '// @input SceneObject windGlobeRoot {"hint":"Wind globe example rig."}'
+    - '// @input SceneObject liveFoilFlowRoot {"hint":"Live 2D foil-flow aerodynamics rig."}'
     - '// @input bool applyOnStart {"hint":"Stage a step at startup when the director runs without the main guide."}'
     - '// @input float initialStep {"hint":"Initial step index when applyOnStart is enabled.", "widget":"slider", "min":0, "max":2, "step":1}'
     - '// @input SceneObject cameraRoot {"hint":"Optional head/camera anchor for menu-selected front placement. Empty searches for Camera Object."}'

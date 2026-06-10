@@ -27,6 +27,7 @@
   Enabled: true
   ScriptAsset: !<reference> d80f0a0d-1625-4d52-887a-307078659a91
   ScriptInputsDefault:
+    liveFoilFlowRoot: true
     menuRoot: true
     controlContentRoots: true
     settleSeconds: true
