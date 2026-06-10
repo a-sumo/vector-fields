@@ -2326,18 +2326,21 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private findAeroFlowRoot(): SceneObject | null {
         if (this.isCarAeroShape()) {
             return this.findObjectByName("Car Fluid Flow") ||
+                this.findObjectByName("LiveFoilFlow") ||
                 this.findObjectByName("LiveFoilFlow2D") ||
                 this.findObjectByName("LiveFoil") ||
                 this.findObjectByName("Live Foil");
         }
-        return this.findObjectByName("LiveFoilFlow2D") ||
+        return this.findObjectByName("LiveFoilFlow") ||
+            this.findObjectByName("LiveFoilFlow2D") ||
             this.findObjectByName("LiveFoil") ||
             this.findObjectByName("Live Foil") ||
             this.findObjectByName("Car Fluid Flow");
     }
 
     private hasStandaloneAeroFlowRoot(): boolean {
-        return !!(this.findObjectByName("LiveFoilFlow2D") ||
+        return !!(this.findObjectByName("LiveFoilFlow") ||
+            this.findObjectByName("LiveFoilFlow2D") ||
             this.findObjectByName("LiveFoil") ||
             this.findObjectByName("Live Foil"));
     }
@@ -2719,6 +2722,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.setObjectEnabledByName("Mission Info", showArtemis);
         this.setObjectEnabledByName("MissionInfoPanel", showArtemis);
         this.setObjectEnabledByName("Globe Calibration", showWindGlobe);
+        this.setObjectEnabledByName("LiveFoilFlow", showLiveAero);
         this.setObjectEnabledByName("LiveFoilFlow2D", showLiveAero);
         this.setObjectEnabledByName("LiveFoil", showLiveAero);
         this.setObjectEnabledByName("Live Foil", showLiveAero);
@@ -4394,7 +4398,8 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
             return rootName === "Globe Calibration" || rootName === "Globe Spin-Lock Button";
         }
         if (this.selectedExampleField === "aerodynamics") {
-            return rootName === "LiveFoilFlow2D" ||
+            return rootName === "LiveFoilFlow" ||
+                rootName === "LiveFoilFlow2D" ||
                 rootName === "LiveFoil" ||
                 rootName === "Live Foil" ||
                 rootName === "Car Fluid Flow" ||
@@ -4725,6 +4730,7 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.setObjectEnabledByName("Mission Info", false);
         this.setObjectEnabledByName("MissionInfoPanel", false);
         this.setObjectEnabledByName("Globe Calibration", false);
+        this.setObjectEnabledByName("LiveFoilFlow", false);
         this.setObjectEnabledByName("Car Fluid Flow", false);
     }
 
@@ -4767,6 +4773,10 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
     private selectAeroShape(id: AeroShapeId): void {
         const option = this.aeroShapeOptionForId(id);
         if (!option) return;
+        const alreadyShowingAerodynamics = GUIDE_STEPS[this.currentIndex].id === "examples" &&
+            this.examplesMenuOpen &&
+            this.examplesDetailOpen &&
+            this.selectedExampleField === "aerodynamics";
         this.setProxyPlaneActive(false);
         this.selectedExampleField = "aerodynamics";
         this.hasSelectedExampleField = true;
@@ -4778,7 +4788,9 @@ export class VectorFieldsChapterGuide extends BaseScriptComponent {
         this.examplesMenuOpen = true;
         this.examplesDetailOpen = true;
         this.theoryMenuOpen = false;
-        this.stageCurrentRoot();
+        if (!alreadyShowingAerodynamics) {
+            this.stageCurrentRoot();
+        }
         this.applyAeroShapeToActiveFlow();
         this.syncVisualState();
     }

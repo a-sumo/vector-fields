@@ -86,6 +86,11 @@ export class StoryStepDirector extends BaseScriptComponent {
     windGlobeRoot: SceneObject = null as any;
 
     @input
+    @allowUndefined
+    @hint("Live 2D foil-flow aerodynamics rig.")
+    liveFoilFlowRoot: SceneObject = null as any;
+
+    @input
     @hint("Stage a step at startup when the director runs without the main guide.")
     applyOnStart: boolean = false;
 
@@ -1456,6 +1461,7 @@ export class StoryStepDirector extends BaseScriptComponent {
         this.setEnabled(this.magneticFieldRoot || this.findObjectByName("Magnetic Field Root"), false);
         this.setEnabled(this.gravityFieldRoot || this.findObjectByName("Gravity Field Root"), false);
         this.setEnabled(this.windGlobeRoot || this.findObjectByName("Globe Calibration"), false);
+        this.setEnabled(this.liveFoilFlowRoot || this.findObjectByName("LiveFoilFlow"), false);
         this.setEnabled(this.findObjectByName("LiveFoilFlow2D"), false);
         this.setEnabled(this.findObjectByName("LiveFoil"), false);
         this.setEnabled(this.findObjectByName("Live Foil"), false);
@@ -1465,11 +1471,15 @@ export class StoryStepDirector extends BaseScriptComponent {
     private findAeroFlowRoot(): SceneObject | null {
         if (this.selectedAerodynamicsBackend === "car") {
             return this.findObjectByName("Car Fluid Flow") ||
+                this.liveFoilFlowRoot ||
+                this.findObjectByName("LiveFoilFlow") ||
                 this.findObjectByName("LiveFoilFlow2D") ||
                 this.findObjectByName("LiveFoil") ||
                 this.findObjectByName("Live Foil");
         }
-        return this.findObjectByName("LiveFoilFlow2D") ||
+        return this.liveFoilFlowRoot ||
+            this.findObjectByName("LiveFoilFlow") ||
+            this.findObjectByName("LiveFoilFlow2D") ||
             this.findObjectByName("LiveFoil") ||
             this.findObjectByName("Live Foil") ||
             this.findObjectByName("Car Fluid Flow");

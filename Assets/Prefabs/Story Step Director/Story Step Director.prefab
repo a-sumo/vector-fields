@@ -55,6 +55,7 @@
       magneticFieldRoot: !<reference.SceneObject> 9e72f614-329f-4e4a-b149-7fe960315346
       gravityFieldRoot: !<reference.SceneObject> a0d85fd6-b271-46c7-b4cd-229a9b924811
       windGlobeRoot: !<reference.SceneObject> 33f7d2ff-6a63-4beb-b027-12bbe1f65b9d
+      liveFoilFlowRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       applyOnStart: false
       initialStep: !<float> 1.000000
       cameraRoot: !<reference.SceneObject> 00000000-0000-0065-0000-000000000064
