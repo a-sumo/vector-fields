@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use, remix, publish, or build on this Lens Studio project, please cite it using the metadata below."
+title: "Vector Fields Lens"
+type: software
+authors:
+  - family-names: "Sumo"
+    given-names: "Armand"
+repository-code: "https://github.com/a-sumo/vector-fields"
+url: "https://github.com/a-sumo/vector-fields"
+license: "Apache-2.0"
+date-released: "2026-06-10"
+version: "1.0.0"
+preferred-citation:
+  type: generic
+  authors:
+    - family-names: "Sumo"
+      given-names: "Armand"
+  title: "Vector Fields Lens"
+  year: 2026
+  url: "https://github.com/a-sumo/vector-fields"

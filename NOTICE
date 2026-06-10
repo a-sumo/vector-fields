@@ -1,0 +1,16 @@
+Vector Fields Lens
+Copyright 2026 Armand Sumo
+
+This project is an open-source Lens Studio experience by Armand Sumo.
+Redistributions of this project, modified versions, and substantial reused
+portions should preserve this notice.
+
+Recommended citation:
+
+Armand Sumo. Vector Fields Lens. 2026.
+https://github.com/a-sumo/vector-fields
+
+The Earth wind example includes baked NOAA GFS 10 m wind data retrieved through
+NOAA ERDDAP, dataset ncep_global_lon180. Tropical cyclone markers are generated
+from GDACS event data. Those data sources remain subject to their respective
+providers' terms and attribution guidance.
